@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: auth
+
+Parameters:
+  DomainName:
+    Type: String
+  Certificate:
+    Type: String
+
+Resources:
+  ProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ClientId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ClientId
+          KeyType: HASH
+
+  ProductTablePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:BatchGetItem
+              - dynamodb:Query
+              - dynamodb:DescribeTable
+              - dynamodb:PutItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+            Resource:
+              - !GetAtt ProductTable.Arn
+              - !Sub
+                - "${TableARN}/index/*"
+                - { TableARN: !GetAtt ProductTable.Arn }
+
+  ProductTableReadOnlyPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:BatchGetItem
+              - dynamodb:Query
+              - dynamodb:DescribeTable
+            Resource:
+              - !GetAtt ProductTable.Arn
+              - !Sub
+                - "${TableARN}/index/*"
+                - { TableARN: !GetAtt ProductTable.Arn }
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: False
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: False
+          RequireNumbers: False
+          RequireSymbols: False
+          RequireUppercase: False
+          TemporaryPasswordValidityDays: 7
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Priority: 1
+            Name: verified_email
+      AutoVerifiedAttributes:
+        - email
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Ref DomainName
+      CustomDomainConfig:
+        CertificateArn: !Ref Certificate
+
+  UserPoolId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      Name: !Sub "/stack/${AWS::StackName}/UserPoolId"
+      Value: !Ref UserPool
+
+  PreSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/presignup/
+      Handler: presignup
+      Runtime: go1.x
+      Policies:
+        - !Ref ProductTableReadOnlyPolicy
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          USER_POOL_ID: !Ref UserPool
+
+  PreAuthientcationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/preauth/
+      Handler: preauth
+      Runtime: go1.x
+      Policies:
+        - !Ref ProductTableReadOnlyPolicy
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          PRODUCT_TABLE: !Ref ProductTable
