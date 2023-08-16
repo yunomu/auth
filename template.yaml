@@ -59,6 +59,31 @@ Resources:
                 - "${TableARN}/index/*"
                 - { TableARN: !GetAtt ProductTable.Arn }
 
+  PreSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/presignup/
+      Handler: presignup
+      Runtime: go1.x
+      Policies:
+        - !Ref ProductTableReadOnlyPolicy
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+
+  PreAuthenticationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/preauth/
+      Handler: preauth
+      Runtime: go1.x
+      Policies:
+        - !Ref ProductTableReadOnlyPolicy
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          PRODUCT_TABLE: !Ref ProductTable
+
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -84,6 +109,9 @@ Resources:
         - email
       EmailConfiguration:
         EmailSendingAccount: COGNITO_DEFAULT
+      LambdaConfig:
+        PreSignUp: !GetAtt PreSignupFunction.Arn
+        PreAuthentication: !GetAtt PreAuthenticationFunction.Arn
 
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -100,28 +128,8 @@ Resources:
       Name: !Sub "/stack/${AWS::StackName}/UserPoolId"
       Value: !Ref UserPool
 
-  PreSignupFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/presignup/
-      Handler: presignup
-      Runtime: go1.x
-      Policies:
-        - !Ref ProductTableReadOnlyPolicy
-      Environment:
-        Variables:
-          REGION: !Ref AWS::Region
-          USER_POOL_ID: !Ref UserPool
-
-  PreAuthientcationFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/preauth/
-      Handler: preauth
-      Runtime: go1.x
-      Policies:
-        - !Ref ProductTableReadOnlyPolicy
-      Environment:
-        Variables:
-          REGION: !Ref AWS::Region
-          PRODUCT_TABLE: !Ref ProductTable
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolIdSSM:
+    Value: !Ref UserPoolId

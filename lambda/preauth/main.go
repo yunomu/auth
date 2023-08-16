@@ -6,13 +6,15 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aws/aws-lambda-go/lambda"
+	lambdahandler "github.com/aws/aws-lambda-go/lambda"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/lambda"
 
 	"github.com/yunomu/auth/lib/db/productdb"
+	"github.com/yunomu/auth/lib/preauthfunc"
 
 	"github.com/yunomu/auth/lambda/preauth/internal/handler"
 )
@@ -25,6 +27,12 @@ func init() {
 		panic(err)
 	}
 	logger = l
+}
+
+type appLogger struct{}
+
+func (a *appLogger) Error(err error, msg string) {
+	logger.Error(msg, zap.Error(err))
 }
 
 func main() {
@@ -43,7 +51,11 @@ func main() {
 			dynamodb.New(sess),
 			productTable,
 		),
+		preauthfunc.NewLambda(
+			lambda.New(sess),
+		),
+		handler.SetLogger(&appLogger{}),
 	)
 
-	lambda.StartWithContext(ctx, h.Serve)
+	lambdahandler.StartWithContext(ctx, h.Serve)
 }

@@ -29,7 +29,6 @@ func main() {
 	ctx := context.Background()
 
 	region := os.Getenv("REGION")
-	userPoolId := os.Getenv("USER_POOL_ID")
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
 	if err != nil {
@@ -40,7 +39,6 @@ func main() {
 		cognitoidentityprovider.New(
 			sess,
 		),
-		userPoolId,
 	)
 
 	lambda.StartWithContext(ctx, h.Serve)

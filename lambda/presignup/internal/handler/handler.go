@@ -9,17 +9,14 @@ import (
 )
 
 type Handler struct {
-	cognito    *cognitoidentityprovider.CognitoIdentityProvider
-	userPoolId string
+	cognito *cognitoidentityprovider.CognitoIdentityProvider
 }
 
 func NewHandler(
 	cognito *cognitoidentityprovider.CognitoIdentityProvider,
-	userPoolId string,
 ) *Handler {
 	return &Handler{
-		cognito:    cognito,
-		userPoolId: userPoolId,
+		cognito: cognito,
 	}
 }
 
