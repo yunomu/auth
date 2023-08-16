@@ -133,3 +133,5 @@ Outputs:
     Value: !Ref UserPool
   UserPoolIdSSM:
     Value: !Ref UserPoolId
+  ProductTable:
+    Value: !Ref ProductTable
