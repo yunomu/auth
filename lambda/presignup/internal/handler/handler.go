@@ -2,28 +2,33 @@ package handler
 
 import (
 	"context"
+	"sort"
 
 	"github.com/aws/aws-lambda-go/events"
-
-	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 )
 
 type Handler struct {
-	cognito *cognitoidentityprovider.CognitoIdentityProvider
+	whiteList    []string
+	whiteListLen int
 }
 
 func NewHandler(
-	cognito *cognitoidentityprovider.CognitoIdentityProvider,
+	whiteList []string,
 ) *Handler {
+	sort.StringSlice(whiteList).Sort()
 	return &Handler{
-		cognito: cognito,
+		whiteList: whiteList,
 	}
 }
 
 type Request events.CognitoEventUserPoolsPreSignup
 
+func (h *Handler) containsEmail(email string) bool {
+	return sort.SearchStrings(h.whiteList, email) != -1
+}
+
 func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
-	req.Response.AutoConfirmUser = true // XXX: confirm all
-	// TODO
+	req.Response.AutoConfirmUser = h.containsEmail(req.Request.UserAttributes["email"])
+
 	return req, nil
 }

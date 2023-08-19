@@ -20,26 +20,39 @@ Resources:
         - AttributeName: ClientId
           KeyType: HASH
 
-  ProductTablePolicy:
+  Bucket:
+    Type: AWS::S3::Bucket
+
+  BucketReadOnlyPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: 2012-10-17
         Statement:
           - Effect: Allow
             Action:
-              - dynamodb:GetItem
-              - dynamodb:BatchGetItem
-              - dynamodb:Query
-              - dynamodb:DescribeTable
-              - dynamodb:PutItem
-              - dynamodb:BatchWriteItem
-              - dynamodb:DeleteItem
+              - s3:ListBucket
+              - s3:Get*
             Resource:
-              - !GetAtt ProductTable.Arn
+              - !GetAtt Bucket.Arn
               - !Sub
-                - "${TableARN}/index/*"
-                - { TableARN: !GetAtt ProductTable.Arn }
+                - "${BucketArn}/*"
+                - BucketArn: !GetAtt Bucket.Arn
+
+  PreSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/presignup/
+      Handler: presignup
+      Runtime: go1.x
+      Policies:
+        - !Ref BucketReadOnlyPolicy
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          WHITE_LIST_OBJECT: !Sub
+            - "${BucketArn}/accounts/whitelist"
+            - BucketArn: !GetAtt Bucket.Arn
 
   ProductTableReadOnlyPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -58,18 +71,6 @@ Resources:
               - !Sub
                 - "${TableARN}/index/*"
                 - { TableARN: !GetAtt ProductTable.Arn }
-
-  PreSignupFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/presignup/
-      Handler: presignup
-      Runtime: go1.x
-      Policies:
-        - !Ref ProductTableReadOnlyPolicy
-      Environment:
-        Variables:
-          REGION: !Ref AWS::Region
 
   PreAuthenticationFunction:
     Type: AWS::Serverless::Function
