@@ -103,7 +103,7 @@ Resources:
           RequireUppercase: False
           TemporaryPasswordValidityDays: 7
       AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: true
+        AllowAdminCreateUserOnly: false
       AccountRecoverySetting:
         RecoveryMechanisms:
           - Priority: 1
