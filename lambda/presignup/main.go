@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"errors"
-	"io"
 	"os"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -18,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/yunomu/auth/lambda/presignup/internal/handler"
+	"github.com/yunomu/auth/lib/userlist"
 )
 
 var logger *zap.Logger
@@ -32,16 +30,10 @@ func init() {
 
 var errNoSuchKey = errors.New("no such key")
 
-func loadWhiteList(ctx context.Context, client *s3.S3, whiteListObject string) ([]string, error) {
-	ss := strings.SplitN(whiteListObject, "/", 2)
-	if len(ss) != 2 {
-		return nil, errors.New("Invalid Object URI")
-	}
-	bucket, key := ss[0], ss[1]
-
+func loadWhiteList(ctx context.Context, client *s3.S3, bucket, whiteListKey string) ([]*userlist.User, error) {
 	out, err := client.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+		Key:    aws.String(whiteListKey),
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -53,44 +45,29 @@ func loadWhiteList(ctx context.Context, client *s3.S3, whiteListObject string) (
 	}
 	defer out.Body.Close()
 
-	var ret []string
-	r := csv.NewReader(out.Body)
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-
-		if len(record) == 0 {
-			continue
-		}
-
-		ret = append(ret, record[0])
-	}
-
-	return ret, nil
+	return userlist.Load(out.Body)
 }
 
 func main() {
 	ctx := context.Background()
 
 	region := os.Getenv("REGION")
-	whiteListObject := os.Getenv("WHITE_LIST_OBJECT")
+	bucket := os.Getenv("BUCKET")
+	whiteListKey := os.Getenv("WHITE_LIST_KEY")
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
 	if err != nil {
 		logger.Fatal("NewSession", zap.Error(err))
 	}
 
-	whiteList, err := loadWhiteList(ctx, s3.New(sess), whiteListObject)
+	whiteList, err := loadWhiteList(ctx, s3.New(sess), bucket, whiteListKey)
 	if err == errNoSuchKey {
-		whiteList = []string{}
+		whiteList = []*userlist.User{}
 	} else if err != nil {
 		logger.Fatal("load white list",
 			zap.Error(err),
-			zap.String("WHITE_LIST_OBJECT", whiteListObject),
+			zap.String("BUCKET", bucket),
+			zap.String("WHITE_LIST_KEY", whiteListKey),
 		)
 	}
 

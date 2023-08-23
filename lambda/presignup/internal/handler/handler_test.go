@@ -1,12 +1,16 @@
 package handler
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/yunomu/auth/lib/whitelist"
+)
 
 func TestContainEmail(t *testing.T) {
-	h := NewHandler([]string{
-		"ghi",
-		"def",
-		"abc",
+	h := NewHandler([]*whitelist.User{
+		{Name: "ghi"},
+		{Name: "def"},
+		{Name: "abc"},
 	})
 
 	if !h.containsEmail("abc") {

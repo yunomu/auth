@@ -66,20 +66,35 @@ func (l *logger) Info(function string, message string) {
 }
 
 func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
-	if *c.table == "" {
-		log.Fatal("table name is required")
+	var table string
+	cfg, ok := args[0].(map[string]string)
+	if ok {
+		table = cfg["ProductTable"]
 	}
 
-	return c.commander.Execute(ctx, func() productdb.DB {
-		config := aws.NewConfig().WithRegion(*c.region)
+	if *c.table != "" {
+		table = *c.table
+	}
 
-		if *c.endpoint != "" {
-			config.WithEndpoint(*c.endpoint)
-		}
+	if table == "" {
+		log.Println("table name is required")
+		return subcommands.ExitFailure
+	}
 
-		return productdb.NewDynamoDB(
-			dynamodb.New(session.New(), config),
-			*c.table,
-		)
-	})
+	config := aws.NewConfig().WithRegion(*c.region)
+
+	if *c.endpoint != "" {
+		config.WithEndpoint(*c.endpoint)
+	}
+
+	sess, err := session.NewSession(config)
+	if err != nil {
+		log.Printf("NewSession: %v", err)
+		return subcommands.ExitFailure
+	}
+
+	return c.commander.Execute(ctx, productdb.NewDynamoDB(
+		dynamodb.New(sess),
+		table,
+	))
 }

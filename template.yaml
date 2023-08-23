@@ -7,6 +7,9 @@ Parameters:
     Type: String
   Certificate:
     Type: String
+  WhiteListPath:
+    Type: String
+    Default: accounts/whitelist
 
 Resources:
   ProductTable:
@@ -50,9 +53,8 @@ Resources:
       Environment:
         Variables:
           REGION: !Ref AWS::Region
-          WHITE_LIST_OBJECT: !Sub
-            - "${BucketArn}/accounts/whitelist"
-            - BucketArn: !GetAtt Bucket.Arn
+          BUCKET: !GetAtt Bucket.Arn
+          WHITE_LIST_KEY: !Ref WhiteListPath
 
   ProductTableReadOnlyPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -136,3 +138,5 @@ Outputs:
     Value: !Ref UserPoolId
   ProductTable:
     Value: !Ref ProductTable
+  Bucket:
+    Value: !Ref Bucket

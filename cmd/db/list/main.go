@@ -31,11 +31,11 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
-	f, ok := args[0].(func() productdb.DB)
+	db, ok := args[0].(productdb.DB)
 	if !ok {
-		log.Fatalf("cast error")
+		log.Printf("cast error")
+		return subcommands.ExitFailure
 	}
-	db := f()
 
 	w := csv.NewWriter(os.Stdout)
 	w.Comma = '\t'
