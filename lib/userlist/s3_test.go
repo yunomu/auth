@@ -37,6 +37,7 @@ func TestGet_NoFile(t *testing.T) {
 	db := NewS3(&S3Mock{
 		GetObjectFn: func(in *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
 			return nil, &mockError{
+				msg:  "no such key",
 				code: s3.ErrCodeNoSuchKey,
 			}
 		},
@@ -115,6 +116,7 @@ func TestPut_NoFile(t *testing.T) {
 	db := NewS3(&S3Mock{
 		GetObjectFn: func(in *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
 			return nil, &mockError{
+				msg:  "no such key",
 				code: s3.ErrCodeNoSuchKey,
 			}
 		},
@@ -153,5 +155,21 @@ func TestPut_NoFile(t *testing.T) {
 		Name: exp,
 	}); err != nil {
 		t.Fatalf("PutError: %v", err)
+	}
+}
+
+func TestGet_unexpectedError(t *testing.T) {
+	exp := errors.New("unknown error")
+	db := NewS3(&S3Mock{
+		GetObjectFn: func(in *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+			return nil, exp
+		},
+	}, "bucket", "key")
+
+	ctx := context.Background()
+	res, err := db.Get(ctx, "test@example.com")
+	if err != exp {
+		t.Logf("res: %v", res)
+		t.Fatalf("unexpected error in db.Get: %v", err)
 	}
 }

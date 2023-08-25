@@ -1254,11 +1254,12 @@ func (s *S3Mock) WaitUntilObjectNotExistsWithContext(_ aws.Context, _ *s3.HeadOb
 }
 
 type mockError struct {
+	msg  string
 	code string
 }
 
 func (t *mockError) Error() string {
-	panic("not implemented") // TODO: Implement
+	return t.msg
 }
 
 // Returns the short phrase depicting the classification of the error.
