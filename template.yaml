@@ -44,10 +44,12 @@ Resources:
 
   PreSignupFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
     Properties:
       CodeUri: lambda/presignup/
-      Handler: presignup
-      Runtime: go1.x
+      Handler: bootstrap
+      Runtime: provided.al2
       Policies:
         - !Ref BucketReadOnlyPolicy
       Environment:
@@ -76,10 +78,12 @@ Resources:
 
   PreAuthenticationFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
     Properties:
       CodeUri: lambda/preauth/
-      Handler: preauth
-      Runtime: go1.x
+      Handler: bootstrap
+      Runtime: provided.al2
       Policies:
         - !Ref ProductTableReadOnlyPolicy
       Environment:
