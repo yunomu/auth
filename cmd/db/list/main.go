@@ -41,7 +41,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 	w.Comma = '\t'
 	w.Write([]string{
 		"ClientId",
-		"AppId",
+		"AppCode",
 		"Created",
 		"FuncArn",
 	})
@@ -50,7 +50,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		t := time.Unix(rec.Created, 0)
 		w.Write([]string{
 			rec.ClientId,
-			rec.AppId,
+			rec.AppCode,
 			t.Format(time.RFC3339),
 			rec.FuncArn,
 		})

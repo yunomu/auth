@@ -33,6 +33,6 @@ graph LR;
 |AttrName|Type|Schema|Description        |
 |--------|----|------|-------------------|
 |ClientId|S   |PK    |                   |
-|AppId   |S   |      |                   |
+|AppCode |S   |      |                   |
 |Created |N   |      |                   |
 |FuncArn |S   |      |ClientTriggerLambda|

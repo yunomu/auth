@@ -7,7 +7,7 @@ import (
 
 type Record struct {
 	ClientId string `dynamodbav:"ClientId"`
-	AppId    string `dynamodbav:"AppId,omitempty"`
+	AppCode  string `dynamodbav:"AppCode,omitempty"`
 	Created  int64  `dynamodbav:"Created,omitempty"`
 	FuncArn  string `dynamodbav:"FuncArn,omitempty"`
 }
