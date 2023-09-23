@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -33,7 +33,7 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	db, ok := args[0].(productdb.DB)
 	if !ok {
-		log.Printf("cast error")
+		slog.Info("cast error")
 		return subcommands.ExitFailure
 	}
 
@@ -55,7 +55,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 			rec.FuncArn,
 		})
 	}); err != nil {
-		log.Printf("db.Scan: %v", err)
+		slog.Error("db.Scan", "err", err)
 		return subcommands.ExitFailure
 	}
 

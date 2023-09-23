@@ -3,11 +3,11 @@ package handler
 import (
 	"testing"
 
-	"github.com/yunomu/auth/lib/whitelist"
+	"github.com/yunomu/auth/lib/userlist"
 )
 
 func TestContainEmail(t *testing.T) {
-	h := NewHandler([]*whitelist.User{
+	h := NewHandler([]*userlist.User{
 		{Name: "ghi"},
 		{Name: "def"},
 		{Name: "abc"},
@@ -15,6 +15,6 @@ func TestContainEmail(t *testing.T) {
 
 	if !h.containsEmail("abc") {
 		t.Errorf("error")
-		t.Logf("list: %#v", h.whiteList)
+		t.Logf("list: %#v", h.userlist)
 	}
 }

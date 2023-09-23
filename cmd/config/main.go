@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/google/subcommands"
@@ -39,12 +39,14 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 
 func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	if *c.stack == "" {
-		log.Fatal("stack name is required")
+		slog.Error("stack name is required")
+		return subcommands.ExitFailure
 	}
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(*c.region))
 	if err != nil {
-		log.Fatalf("NewSession: %v", err)
+		slog.Error("NewSession", "err", err)
+		return subcommands.ExitFailure
 	}
 
 	client := cloudformation.New(sess)
@@ -53,11 +55,13 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 		StackName: aws.String(*c.stack),
 	})
 	if err != nil {
-		log.Fatalf("DescribeStacks: %v", err)
+		slog.Error("DescribeStacks", "err", err)
+		return subcommands.ExitFailure
 	}
 
 	if len(out.Stacks) == 0 {
-		log.Fatalf("No stacks")
+		slog.Error("No stacks")
+		return subcommands.ExitFailure
 	}
 	stack := out.Stacks[0]
 
@@ -71,7 +75,8 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 
 	enc := json.NewEncoder(os.Stdout)
 	if err := enc.Encode(outputs); err != nil {
-		log.Fatalf("json.Encode: %v", err)
+		slog.Error("json.Encode", "err", err)
+		return subcommands.ExitFailure
 	}
 
 	return subcommands.ExitSuccess

@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"log/slog"
 	"os"
-
-	"go.uber.org/zap"
 
 	"github.com/aws/aws-lambda-go/lambda"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
@@ -18,35 +17,24 @@ import (
 	"github.com/yunomu/auth/lib/userlist"
 )
 
-var logger *zap.Logger
+var (
+	logger *slog.Logger
+
+	debug = flag.Bool("g", false, "Debug")
+)
 
 func init() {
-	l, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
+	levelVar := new(slog.LevelVar)
+	if *debug {
+		levelVar.Set(slog.LevelDebug)
 	}
-	logger = l
+
+	logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: levelVar,
+	}))
 }
 
 var errNoSuchKey = errors.New("no such key")
-
-func loadWhiteList(ctx context.Context, client *s3.S3, bucket, whiteListKey string) ([]*userlist.User, error) {
-	out, err := client.GetObjectWithContext(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(whiteListKey),
-	})
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == s3.ErrCodeNoSuchKey {
-				return nil, errNoSuchKey
-			}
-		}
-		return nil, err
-	}
-	defer out.Body.Close()
-
-	return userlist.Load(out.Body)
-}
 
 func main() {
 	ctx := context.Background()
@@ -57,22 +45,19 @@ func main() {
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
 	if err != nil {
-		logger.Fatal("NewSession", zap.Error(err))
-	}
-
-	whiteList, err := loadWhiteList(ctx, s3.New(sess), bucket, whiteListKey)
-	if err == errNoSuchKey {
-		whiteList = []*userlist.User{}
-	} else if err != nil {
-		logger.Fatal("load white list",
-			zap.Error(err),
-			zap.String("BUCKET", bucket),
-			zap.String("WHITE_LIST_KEY", whiteListKey),
+		logger.Error("NewSession",
+			"err", err,
+			"region", region,
 		)
+		return
 	}
 
 	h := handler.NewHandler(
-		whiteList,
+		userlist.NewS3(
+			s3.New(sess),
+			bucket,
+			whiteListKey,
+		),
 	)
 
 	lambda.StartWithContext(ctx, h.Serve)

@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/google/subcommands"
@@ -59,12 +59,6 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 	c.commander = commander
 }
 
-type logger struct{}
-
-func (l *logger) Info(function string, message string) {
-	log.Println(function, message)
-}
-
 func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	var table string
 	cfg, ok := args[0].(map[string]string)
@@ -77,7 +71,7 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 	}
 
 	if table == "" {
-		log.Println("table name is required")
+		slog.Info("table name is required")
 		return subcommands.ExitFailure
 	}
 
@@ -89,7 +83,7 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 
 	sess, err := session.NewSession(config)
 	if err != nil {
-		log.Printf("NewSession: %v", err)
+		slog.Error("NewSession", "err", err)
 		return subcommands.ExitFailure
 	}
 

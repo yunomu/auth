@@ -3,7 +3,7 @@ package put
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 
 	"github.com/google/subcommands"
 
@@ -32,19 +32,19 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	db, ok := args[0].(userlist.DB)
 	if !ok {
-		log.Printf("cast error")
+		slog.Error("cast error")
 		return subcommands.ExitFailure
 	}
 
 	if *c.user == "" {
-		log.Printf("user name is required")
+		slog.Error("user name is required")
 		return subcommands.ExitFailure
 	}
 
 	if err := db.Put(ctx, &userlist.User{
 		Name: *c.user,
 	}); err != nil {
-		log.Printf("db.Put: %v", err)
+		slog.Error("db.Put", "err", err)
 		return subcommands.ExitFailure
 	}
 

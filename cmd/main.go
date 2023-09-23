@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/google/subcommands"
@@ -19,8 +19,6 @@ var (
 )
 
 func init() {
-	log.SetOutput(os.Stderr)
-
 	subcommands.Register(db.NewCommand(), "")
 	subcommands.Register(s3.NewCommand(), "")
 	subcommands.Register(config.NewCommand(), "")
@@ -51,7 +49,10 @@ func loadConfig(file string) (map[string]string, error) {
 func main() {
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		log.Printf("loadConfig: path=%v, err=%v", *configPath, err)
+		slog.Info("loadConfig",
+			slog.String("path", *configPath),
+			slog.Any("err", err),
+		)
 	}
 
 	ctx := context.Background()

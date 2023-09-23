@@ -3,7 +3,7 @@ package s3
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/google/subcommands"
@@ -51,12 +51,6 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 	c.commander = commander
 }
 
-type logger struct{}
-
-func (l *logger) Info(function string, message string) {
-	log.Println(function, message)
-}
-
 func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	var bucket, whiteListKey string
 	cfg, ok := args[0].(map[string]string)
@@ -72,15 +66,18 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 	}
 
 	if bucket == "" {
-		log.Fatal("bucket name is required")
+		slog.Error("bucket name is required")
+		return subcommands.ExitFailure
 	}
 	if whiteListKey == "" {
-		log.Fatal("white-list-key is required")
+		slog.Error("white-list-key is required")
+		return subcommands.ExitFailure
 	}
 
 	sess, err := session.NewSession()
 	if err != nil {
-		log.Fatalf("NewSession: %v", err)
+		slog.Error("NewSession", "err", err)
+		return subcommands.ExitFailure
 	}
 
 	return c.commander.Execute(ctx, userlist.NewS3(

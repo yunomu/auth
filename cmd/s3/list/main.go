@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/google/subcommands"
 
@@ -31,14 +31,14 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	db, ok := args[0].(userlist.DB)
 	if !ok {
-		log.Printf("cast error")
+		slog.Error("cast error")
 		return subcommands.ExitFailure
 	}
 
 	if err := db.Scan(ctx, func(u *userlist.User) {
 		fmt.Println(u.Name)
 	}); err != nil {
-		log.Printf("scan error")
+		slog.Error("scan error")
 		return subcommands.ExitFailure
 	}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/google/subcommands"
@@ -34,19 +34,19 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	db, ok := args[0].(productdb.DB)
 	if !ok {
-		log.Printf("cast error")
+		slog.Info("cast error")
 		return subcommands.ExitFailure
 	}
 
 	rec, err := db.Get(ctx, *c.clientId)
 	if err != nil {
-		log.Printf("db.Get: %v", err)
+		slog.Error("db.Get", "err", err)
 		return subcommands.ExitFailure
 	}
 
 	enc := json.NewEncoder(os.Stdout)
 	if err := enc.Encode(rec); err != nil {
-		log.Printf("json.Encode: %v", err)
+		slog.Error("json.Encode", "err", err)
 		return subcommands.ExitFailure
 	}
 

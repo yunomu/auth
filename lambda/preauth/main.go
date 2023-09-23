@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"flag"
+	"log/slog"
 	"os"
-
-	"go.uber.org/zap"
 
 	lambdahandler "github.com/aws/aws-lambda-go/lambda"
 
@@ -19,20 +19,29 @@ import (
 	"github.com/yunomu/auth/lambda/preauth/internal/handler"
 )
 
-var logger *zap.Logger
+var (
+	logger *slog.Logger
+
+	debug = flag.Bool("g", false, "Debug")
+)
 
 func init() {
-	l, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
+	levelVar := new(slog.LevelVar)
+	if *debug {
+		levelVar.Set(slog.LevelDebug)
 	}
-	logger = l
+
+	logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: levelVar,
+	}))
 }
 
-type appLogger struct{}
+type appLogger struct {
+	logger *slog.Logger
+}
 
 func (a *appLogger) Error(err error, msg string) {
-	logger.Error(msg, zap.Error(err))
+	a.logger.Error(msg, "err", err)
 }
 
 func main() {
@@ -43,7 +52,8 @@ func main() {
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
 	if err != nil {
-		logger.Fatal("NewSession", zap.Error(err))
+		logger.Error("NewSession", "err", err)
+		return
 	}
 
 	h := handler.NewHandler(
@@ -54,7 +64,9 @@ func main() {
 		preauthfunc.NewLambda(
 			lambda.New(sess),
 		),
-		handler.SetLogger(&appLogger{}),
+		handler.SetLogger(&appLogger{
+			logger: logger.With("module", "handler"),
+		}),
 	)
 
 	lambdahandler.StartWithContext(ctx, h.Serve)
