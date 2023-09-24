@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/yunomu/auth/lambda/presignup/internal/handler"
-	"github.com/yunomu/auth/lib/userlist"
+	"github.com/yunomu/auth/lib/db/userlist"
 )
 
 var (

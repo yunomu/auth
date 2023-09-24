@@ -9,7 +9,7 @@ import (
 	"github.com/google/subcommands"
 	"github.com/yunomu/auth/cmd/s3/list"
 	"github.com/yunomu/auth/cmd/s3/put"
-	"github.com/yunomu/auth/lib/userlist"
+	"github.com/yunomu/auth/lib/db/userlist"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"

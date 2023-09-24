@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/yunomu/auth/lib/userlist"
+import "github.com/yunomu/auth/lib/db/userlist"
 
 type Logger interface {
 	Signup(*userlist.User)

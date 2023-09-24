@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 
-	"github.com/yunomu/auth/lib/userlist"
+	"github.com/yunomu/auth/lib/db/userlist"
 )
 
 type Handler struct {
