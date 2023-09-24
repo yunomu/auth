@@ -13,13 +13,13 @@ graph LR;
     PreSign["PreSignupFunction\n(Lambda)"]
     PreAuth["PreAuthenticationFunction\n(Lambda)"]
     Product[("ProductTable\n(DynamoDB)")]
-    WhiteList[("WhiteList\n(S3)")]
+    Restriction[("Restriction\n(DynamoDB)")]
   end
 
   UserPool -- PreAuthentication --> PreAuth
   UserPool -- PreSignup --> PreSign
   PreAuth -- read only --> Product
-  PreSign -- read only --> WhiteList
+  PreSign -- read only --> Restriction
 
   subgraph otherproduct[Other product]
     Function[LambdaFunction]
@@ -36,3 +36,11 @@ graph LR;
 |AppCode |S   |      |                   |
 |Created |N   |      |                   |
 |FuncArn |S   |      |ClientTriggerLambda|
+
+## Table: Restriction
+
+|AttrName|Type|Schema|Description        |
+|--------|----|------|-------------------|
+|Email   |S   |PK    |                   |
+|AppCodes|SS  |      |                   |
+|Created |N   |      |                   |
