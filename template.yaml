@@ -98,6 +98,7 @@ Resources:
       Handler: bootstrap
       Runtime: provided.al2
       Policies:
+        - !Ref ProductTableReadOnlyPolicy
         - !Ref RestrictionTableReadOnlyPolicy
       Events:
         CognitoEvent:
@@ -108,6 +109,7 @@ Resources:
       Environment:
         Variables:
           REGION: !Ref AWS::Region
+          PRODUCT_TABLE: !Ref ProductTable
           RESTRICTION_TABLE: !Ref RestrictionTable
 
   ProductTableReadOnlyPolicy:
@@ -138,6 +140,7 @@ Resources:
       Runtime: provided.al2
       Policies:
         - !Ref ProductTableReadOnlyPolicy
+        - !Ref RestrictionTableReadOnlyPolicy
       Events:
         CognitoEvent:
           Type: Cognito
@@ -148,6 +151,7 @@ Resources:
         Variables:
           REGION: !Ref AWS::Region
           PRODUCT_TABLE: !Ref ProductTable
+          RESTRICTION_TABLE: !Ref RestrictionTable
 
 Outputs:
   UserPoolId:
