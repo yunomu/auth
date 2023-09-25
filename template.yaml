@@ -9,6 +9,46 @@ Parameters:
     Type: String
 
 Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: False
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: False
+          RequireNumbers: False
+          RequireSymbols: False
+          RequireUppercase: False
+          TemporaryPasswordValidityDays: 7
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Priority: 1
+            Name: verified_email
+      AutoVerifiedAttributes:
+        - email
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Ref DomainName
+      CustomDomainConfig:
+        CertificateArn: !Ref Certificate
+
+  UserPoolId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      Name: !Sub "/stack/${AWS::StackName}/UserPoolId"
+      Value: !Ref UserPool
   ProductTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -59,6 +99,12 @@ Resources:
       Runtime: provided.al2
       Policies:
         - !Ref RestrictionTableReadOnlyPolicy
+      Events:
+        CognitoEvent:
+          Type: Cognito
+          Properties:
+            UserPool: !Ref UserPool
+            Trigger: PreSignUp
       Environment:
         Variables:
           REGION: !Ref AWS::Region
@@ -92,54 +138,16 @@ Resources:
       Runtime: provided.al2
       Policies:
         - !Ref ProductTableReadOnlyPolicy
+      Events:
+        CognitoEvent:
+          Type: Cognito
+          Properties:
+            UserPool: !Ref UserPool
+            Trigger: PreAuthentication
       Environment:
         Variables:
           REGION: !Ref AWS::Region
           PRODUCT_TABLE: !Ref ProductTable
-
-  UserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UsernameAttributes:
-        - email
-      UsernameConfiguration:
-        CaseSensitive: False
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireLowercase: False
-          RequireNumbers: False
-          RequireSymbols: False
-          RequireUppercase: False
-          TemporaryPasswordValidityDays: 7
-      AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: false
-      AccountRecoverySetting:
-        RecoveryMechanisms:
-          - Priority: 1
-            Name: verified_email
-      AutoVerifiedAttributes:
-        - email
-      EmailConfiguration:
-        EmailSendingAccount: COGNITO_DEFAULT
-      LambdaConfig:
-        PreSignUp: !GetAtt PreSignupFunction.Arn
-        PreAuthentication: !GetAtt PreAuthenticationFunction.Arn
-
-  UserPoolDomain:
-    Type: AWS::Cognito::UserPoolDomain
-    Properties:
-      UserPoolId: !Ref UserPool
-      Domain: !Ref DomainName
-      CustomDomainConfig:
-        CertificateArn: !Ref Certificate
-
-  UserPoolId:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Type: String
-      Name: !Sub "/stack/${AWS::StackName}/UserPoolId"
-      Value: !Ref UserPool
 
 Outputs:
   UserPoolId:
