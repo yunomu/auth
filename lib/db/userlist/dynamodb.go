@@ -53,7 +53,8 @@ func (db *DynamoDB) Get(ctx context.Context, email string) (*User, error) {
 	}
 
 	return &User{
-		Name: rec.Email,
+		Name:     rec.Email,
+		AppCodes: rec.AppCodes,
 	}, nil
 }
 
@@ -77,7 +78,8 @@ func (db *DynamoDB) Scan(ctx context.Context, f func(*User)) error {
 
 		for _, rec := range recs {
 			f(&User{
-				Name: rec.Email,
+				Name:     rec.Email,
+				AppCodes: rec.AppCodes,
 			})
 		}
 
@@ -93,7 +95,8 @@ func (db *DynamoDB) Scan(ctx context.Context, f func(*User)) error {
 
 func (db *DynamoDB) Put(ctx context.Context, user *User) error {
 	av, err := dynamodbattribute.MarshalMap(&record{
-		Email: user.Name,
+		Email:    user.Name,
+		AppCodes: user.AppCodes,
 	})
 	if err != nil {
 		return err

@@ -6,7 +6,8 @@ import (
 )
 
 type User struct {
-	Name string
+	Name     string
+	AppCodes []string
 }
 
 var ErrNoSuchUser = errors.New("no such user")
