@@ -1,4 +1,4 @@
-package s3
+package userlist
 
 import (
 	"context"
@@ -7,18 +7,18 @@ import (
 	"os"
 
 	"github.com/google/subcommands"
-	"github.com/yunomu/auth/cmd/s3/list"
-	"github.com/yunomu/auth/cmd/s3/put"
-	"github.com/yunomu/auth/lib/db/userlist"
 
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+
+	"github.com/yunomu/auth/cmd/userlist/list"
+	"github.com/yunomu/auth/cmd/userlist/put"
+	"github.com/yunomu/auth/lib/db/userlist"
 )
 
 type Command struct {
-	region       *string
-	bucket       *string
-	whiteListKey *string
+	region *string
+	table  *string
 
 	commander *subcommands.Commander
 }
@@ -27,8 +27,8 @@ func NewCommand() *Command {
 	return &Command{}
 }
 
-func (c *Command) Name() string     { return "s3" }
-func (c *Command) Synopsis() string { return "s3 util" }
+func (c *Command) Name() string     { return "userlist" }
+func (c *Command) Synopsis() string { return "userlist util" }
 func (c *Command) Usage() string {
 	return `
 `
@@ -37,8 +37,7 @@ func (c *Command) Usage() string {
 func (c *Command) SetFlags(f *flag.FlagSet) {
 	f.SetOutput(os.Stderr)
 
-	c.bucket = f.String("bucket", "", "Bucket name")
-	c.whiteListKey = f.String("white-list-key", "", "Whitelist object key")
+	c.table = f.String("table", "", "RestrictionTable name")
 
 	commander := subcommands.NewCommander(f, "")
 	commander.Register(commander.FlagsCommand(), "help")
@@ -52,25 +51,17 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
-	var bucket, whiteListKey string
+	var table string
 	cfg, ok := args[0].(map[string]string)
 	if ok {
-		bucket = cfg["Bucket"]
-		whiteListKey = cfg["WhiteListPath"]
+		table = cfg["RestrictionTable"]
 	}
-	if *c.bucket != "" {
-		bucket = *c.bucket
-	}
-	if *c.whiteListKey != "" {
-		whiteListKey = *c.whiteListKey
+	if *c.table != "" {
+		table = *c.table
 	}
 
-	if bucket == "" {
-		slog.Error("bucket name is required")
-		return subcommands.ExitFailure
-	}
-	if whiteListKey == "" {
-		slog.Error("white-list-key is required")
+	if table == "" {
+		slog.Error("table name is required")
 		return subcommands.ExitFailure
 	}
 
@@ -80,8 +71,8 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
-	return c.commander.Execute(ctx, userlist.NewS3(
-		s3.New(sess),
-		bucket, whiteListKey,
+	return c.commander.Execute(ctx, userlist.NewDynamoDB(
+		dynamodb.New(sess),
+		table,
 	))
 }

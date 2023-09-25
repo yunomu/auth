@@ -11,7 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 
 	"github.com/yunomu/auth/lambda/presignup/internal/handler"
 	"github.com/yunomu/auth/lib/db/userlist"
@@ -40,8 +40,7 @@ func main() {
 	ctx := context.Background()
 
 	region := os.Getenv("REGION")
-	bucket := os.Getenv("BUCKET")
-	whiteListKey := os.Getenv("WHITE_LIST_KEY")
+	table := os.Getenv("RESTRICTION_TABLE")
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
 	if err != nil {
@@ -53,10 +52,9 @@ func main() {
 	}
 
 	h := handler.NewHandler(
-		userlist.NewS3(
-			s3.New(sess),
-			bucket,
-			whiteListKey,
+		userlist.NewDynamoDB(
+			dynamodb.New(sess),
+			table,
 		),
 	)
 

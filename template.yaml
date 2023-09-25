@@ -7,9 +7,6 @@ Parameters:
     Type: String
   Certificate:
     Type: String
-  WhiteListPath:
-    Type: String
-    Default: accounts/whitelist
 
 Resources:
   ProductTable:
@@ -23,24 +20,34 @@ Resources:
         - AttributeName: ClientId
           KeyType: HASH
 
-  Bucket:
-    Type: AWS::S3::Bucket
+  RestrictionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: Email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Email
+          KeyType: HASH
 
-  BucketReadOnlyPolicy:
+  RestrictionTableReadOnlyPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action:
-              - s3:ListBucket
-              - s3:Get*
+              - dynamodb:GetItem
+              - dynamodb:BatchGetItem
+              - dynamodb:Query
+              - dynamodb:DescribeTable
             Resource:
-              - !GetAtt Bucket.Arn
+              - !GetAtt RestrictionTable.Arn
               - !Sub
-                - "${BucketArn}/*"
-                - BucketArn: !GetAtt Bucket.Arn
+                - "${TableARN}/index/*"
+                - { TableARN: !GetAtt RestrictionTable.Arn }
 
   PreSignupFunction:
     Type: AWS::Serverless::Function
@@ -51,12 +58,11 @@ Resources:
       Handler: bootstrap
       Runtime: provided.al2
       Policies:
-        - !Ref BucketReadOnlyPolicy
+        - !Ref RestrictionTableReadOnlyPolicy
       Environment:
         Variables:
           REGION: !Ref AWS::Region
-          BUCKET: !GetAtt Bucket.Arn
-          WHITE_LIST_KEY: !Ref WhiteListPath
+          RESTRICTION_TABLE: !Ref RestrictionTable
 
   ProductTableReadOnlyPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -140,7 +146,7 @@ Outputs:
     Value: !Ref UserPool
   UserPoolIdSSM:
     Value: !Ref UserPoolId
+  RestrictionTable:
+    Value: !Ref RestrictionTable
   ProductTable:
     Value: !Ref ProductTable
-  Bucket:
-    Value: !Ref Bucket
