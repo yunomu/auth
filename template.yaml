@@ -49,6 +49,7 @@ Resources:
       Type: String
       Name: !Sub "/stack/${AWS::StackName}/UserPoolId"
       Value: !Ref UserPool
+
   ProductTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -59,6 +60,24 @@ Resources:
       KeySchema:
         - AttributeName: ClientId
           KeyType: HASH
+
+  ProductTableReadOnlyPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:BatchGetItem
+              - dynamodb:Query
+              - dynamodb:DescribeTable
+            Resource:
+              - !GetAtt ProductTable.Arn
+              - !Sub
+                - "${TableARN}/index/*"
+                - { TableARN: !GetAtt ProductTable.Arn }
 
   RestrictionTable:
     Type: AWS::DynamoDB::Table
@@ -111,24 +130,6 @@ Resources:
           REGION: !Ref AWS::Region
           PRODUCT_TABLE: !Ref ProductTable
           RESTRICTION_TABLE: !Ref RestrictionTable
-
-  ProductTableReadOnlyPolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties:
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action:
-              - dynamodb:GetItem
-              - dynamodb:BatchGetItem
-              - dynamodb:Query
-              - dynamodb:DescribeTable
-            Resource:
-              - !GetAtt ProductTable.Arn
-              - !Sub
-                - "${TableARN}/index/*"
-                - { TableARN: !GetAtt ProductTable.Arn }
 
   PreAuthenticationFunction:
     Type: AWS::Serverless::Function
