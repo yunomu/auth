@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/aws/aws-lambda-go/events"
 
 	"github.com/yunomu/auth/lib/db/productdb"
@@ -58,17 +60,37 @@ func containsAppCode(code string, codes []string) bool {
 }
 
 func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
-	user, err := h.userlistDB.Get(ctx, req.UserName)
-	if err == userlist.ErrNoSuchUser {
-		h.logger.Info("no such user", req.UserName, "(null)")
-		return req, nil
-	} else if err != nil {
-		return nil, err
-	}
+	g, ctx := errgroup.WithContext(ctx)
 
-	clientID := req.CallerContext.ClientID
-	product, err := h.productDB.Get(ctx, clientID)
-	if err != nil {
+	var user *userlist.User
+	g.Go(func() error {
+		u, err := h.userlistDB.Get(ctx, req.UserName)
+		if err == userlist.ErrNoSuchUser {
+			h.logger.Info("no such user", req.UserName, "(null)")
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		user = u
+
+		return nil
+	})
+
+	var product *productdb.Record
+	g.Go(func() error {
+		clientID := req.CallerContext.ClientID
+		p, err := h.productDB.Get(ctx, clientID)
+		if err != nil {
+			return err
+		}
+
+		product = p
+
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 
