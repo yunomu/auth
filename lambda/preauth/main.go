@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda"
 
 	"github.com/yunomu/auth/lib/db/productdb"
+	"github.com/yunomu/auth/lib/db/userlist"
 	"github.com/yunomu/auth/lib/preauthfunc"
 
 	"github.com/yunomu/auth/lambda/preauth/internal/handler"
@@ -44,11 +45,20 @@ func (a *appLogger) Error(err error, msg string) {
 	a.logger.Error(msg, "err", err)
 }
 
+func (a *appLogger) Info(msg string, req *handler.Request, product *productdb.Record, user *userlist.User) {
+	a.logger.Info(msg,
+		"request", req,
+		"product", product,
+		"user", user,
+	)
+}
+
 func main() {
 	ctx := context.Background()
 
 	region := os.Getenv("REGION")
 	productTable := os.Getenv("PRODUCT_TABLE")
+	restrictionTable := os.Getenv("RESTRICTION_TABLE")
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
 	if err != nil {
@@ -60,6 +70,10 @@ func main() {
 		productdb.NewDynamoDB(
 			dynamodb.New(sess),
 			productTable,
+		),
+		userlist.NewDynamoDB(
+			dynamodb.New(sess),
+			restrictionTable,
 		),
 		preauthfunc.NewLambda(
 			lambda.New(sess),
