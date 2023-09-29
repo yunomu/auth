@@ -20,6 +20,8 @@ graph LR;
   UserPool -- PreSignup --> PreSign
   PreAuth -- read only --> Product
   PreSign -- read only --> Restriction
+  PreAuth -- read only --> Restriction
+  PreSign -- read only --> Product
 
   subgraph otherproduct[Other product]
     Function[LambdaFunction]
@@ -30,17 +32,17 @@ graph LR;
 
 ## Table: Product
 
-|AttrName|Type|Schema|Description        |
-|--------|----|------|-------------------|
-|ClientId|S   |PK    |                   |
-|AppCode |S   |      |                   |
-|Created |N   |      |                   |
-|FuncArn |S   |      |ClientTriggerLambda|
+|AttrName |Type|Schema|Description        |
+|---------|----|------|-------------------|
+|ClientId |S   |PK    |                   |
+|AppCode  |S   |      |                   |
+|FuncArn  |S   |      |ClientTriggerLambda|
+|Timestamp|N   |      |(Micro second)     |
 
 ## Table: Restriction
 
-|AttrName|Type|Schema|Description        |
-|--------|----|------|-------------------|
-|Email   |S   |PK    |                   |
-|AppCodes|SS  |      |                   |
-|Created |N   |      |                   |
+|AttrName |Type|Schema|Description        |
+|---------|----|------|-------------------|
+|Email    |S   |PK    |                   |
+|AppCodes |SS  |      |                   |
+|Timestamp|N   |      |(Micro second)     |
