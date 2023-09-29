@@ -77,7 +77,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 		return nil
 	})
 
-	var product *productdb.Record
+	var product *productdb.Product
 	g.Go(func() error {
 		clientID := req.CallerContext.ClientID
 		p, err := h.productDB.Get(ctx, clientID)

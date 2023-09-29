@@ -65,7 +65,7 @@ type Request events.CognitoEventUserPoolsPreAuthentication
 func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
-	var product *productdb.Record
+	var product *productdb.Product
 	g.Go(func() error {
 		rec, err := h.productDB.Get(ctx, req.CallerContext.ClientID)
 		if err != nil {

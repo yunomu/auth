@@ -6,7 +6,6 @@ import (
 	"flag"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/google/subcommands"
 
@@ -46,12 +45,10 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		"FuncArn",
 	})
 
-	if err := db.Scan(ctx, func(rec *productdb.Record) {
-		t := time.Unix(rec.Created, 0)
+	if err := db.Scan(ctx, func(rec *productdb.Product) {
 		w.Write([]string{
 			rec.ClientId,
 			rec.AppCode,
-			t.Format(time.RFC3339),
 			rec.FuncArn,
 		})
 	}); err != nil {

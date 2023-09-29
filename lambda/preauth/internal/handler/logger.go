@@ -7,12 +7,12 @@ import (
 
 type Logger interface {
 	Error(error, string)
-	Info(string, *Request, *productdb.Record, *userlist.User)
+	Info(string, *Request, *productdb.Product, *userlist.User)
 }
 
 type defaultLogger struct{}
 
 func (*defaultLogger) Error(_ error, _ string) {}
 
-func (*defaultLogger) Info(string, *Request, *productdb.Record, *userlist.User) {
+func (*defaultLogger) Info(string, *Request, *productdb.Product, *userlist.User) {
 }

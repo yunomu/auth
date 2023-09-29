@@ -45,7 +45,7 @@ func (a *appLogger) Error(err error, msg string) {
 	a.logger.Error(msg, "err", err)
 }
 
-func (a *appLogger) Info(msg string, req *handler.Request, product *productdb.Record, user *userlist.User) {
+func (a *appLogger) Info(msg string, req *handler.Request, product *productdb.Product, user *userlist.User) {
 	a.logger.Info(msg,
 		"request", req,
 		"product", product,

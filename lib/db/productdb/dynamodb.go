@@ -2,6 +2,7 @@ package productdb
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -16,6 +17,30 @@ type DynamoDB struct {
 
 var _ DB = (*DynamoDB)(nil)
 
+type dynamodbRecord struct {
+	ClientId  string `dynamodbav:"ClientId"`
+	AppCode   string `dynamodbav:"AppCode,omitempty"`
+	Timestamp int64  `dynamodbav:"Timestamp,omitempty"`
+	FuncArn   string `dynamodbav:"FuncArn,omitempty"`
+}
+
+func toDynamoDB(p *Product, ts int64) *dynamodbRecord {
+	return &dynamodbRecord{
+		ClientId:  p.ClientId,
+		AppCode:   p.AppCode,
+		FuncArn:   p.FuncArn,
+		Timestamp: ts,
+	}
+}
+
+func fromDynamoDB(r *dynamodbRecord) *Product {
+	return &Product{
+		ClientId: r.ClientId,
+		AppCode:  r.AppCode,
+		FuncArn:  r.FuncArn,
+	}
+}
+
 func NewDynamoDB(
 	client dynamodbiface.DynamoDBAPI,
 	tableName string,
@@ -26,8 +51,8 @@ func NewDynamoDB(
 	}
 }
 
-func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Record, error) {
-	key, err := dynamodbattribute.MarshalMap(&Record{
+func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Product, error) {
+	key, err := dynamodbattribute.MarshalMap(&dynamodbRecord{
 		ClientId: clientId,
 	})
 	if err != nil {
@@ -44,15 +69,15 @@ func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Record, error) {
 		return nil, ErrNotFound
 	}
 
-	var ret Record
-	if err := dynamodbattribute.UnmarshalMap(out.Item, &ret); err != nil {
+	var rec dynamodbRecord
+	if err := dynamodbattribute.UnmarshalMap(out.Item, &rec); err != nil {
 		return nil, err
 	}
 
-	return &ret, nil
+	return fromDynamoDB(&rec), nil
 }
 
-func (d *DynamoDB) Scan(ctx context.Context, f func(*Record)) error {
+func (d *DynamoDB) Scan(ctx context.Context, f func(*Product)) error {
 	var rerr error
 	if err := d.client.ScanPagesWithContext(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(d.tableName),
@@ -64,14 +89,14 @@ func (d *DynamoDB) Scan(ctx context.Context, f func(*Record)) error {
 		default:
 		}
 
-		var recs []Record
+		var recs []dynamodbRecord
 		if err := dynamodbattribute.UnmarshalListOfMaps(out.Items, &recs); err != nil {
 			rerr = err
 			return false
 		}
 
 		for _, rec := range recs {
-			f(&rec)
+			f(fromDynamoDB(&rec))
 		}
 
 		return true
@@ -84,8 +109,10 @@ func (d *DynamoDB) Scan(ctx context.Context, f func(*Record)) error {
 	return nil
 }
 
-func (d *DynamoDB) Put(ctx context.Context, record *Record) error {
-	av, err := dynamodbattribute.MarshalMap(record)
+func (d *DynamoDB) Put(ctx context.Context, product *Product) error {
+	ts := time.Now().UnixMicro()
+
+	av, err := dynamodbattribute.MarshalMap(toDynamoDB(product, ts))
 	if err != nil {
 		return err
 	}

@@ -37,7 +37,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 	}
 
 	dec := json.NewDecoder(os.Stdin)
-	var rec productdb.Record
+	var rec productdb.Product
 	if err := dec.Decode(&rec); err != nil {
 		slog.Error("json.Decode", "err", err)
 		return subcommands.ExitFailure

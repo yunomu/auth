@@ -30,21 +30,21 @@ func (t *testUserlistDB) Put(ctx context.Context, user *userlist.User) error {
 }
 
 type testProductDB struct {
-	GetFn func(context.Context, string) (*productdb.Record, error)
+	GetFn func(context.Context, string) (*productdb.Product, error)
 }
 
-func (t *testProductDB) Get(ctx context.Context, clientId string) (*productdb.Record, error) {
+func (t *testProductDB) Get(ctx context.Context, clientId string) (*productdb.Product, error) {
 	if f := t.GetFn; f != nil {
 		return f(ctx, clientId)
 	}
 	panic("not assigned")
 }
 
-func (t *testProductDB) Scan(ctx context.Context, f func(*productdb.Record)) error {
+func (t *testProductDB) Scan(ctx context.Context, f func(*productdb.Product)) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (t *testProductDB) Put(ctx context.Context, record *productdb.Record) error {
+func (t *testProductDB) Put(ctx context.Context, record *productdb.Product) error {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -59,8 +59,8 @@ func TestServe_HasNotPermission(t *testing.T) {
 			},
 		},
 		&testProductDB{
-			GetFn: func(_ context.Context, clientId string) (*productdb.Record, error) {
-				return &productdb.Record{
+			GetFn: func(_ context.Context, clientId string) (*productdb.Product, error) {
+				return &productdb.Product{
 					AppCode: "testapp",
 				}, nil
 			},

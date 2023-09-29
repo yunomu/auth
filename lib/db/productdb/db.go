@@ -5,17 +5,16 @@ import (
 	"errors"
 )
 
-type Record struct {
-	ClientId string `dynamodbav:"ClientId"`
-	AppCode  string `dynamodbav:"AppCode,omitempty"`
-	Created  int64  `dynamodbav:"Created,omitempty"`
-	FuncArn  string `dynamodbav:"FuncArn,omitempty"`
+type Product struct {
+	ClientId string
+	AppCode  string
+	FuncArn  string
 }
 
 var ErrNotFound = errors.New("not found")
 
 type DB interface {
-	Get(ctx context.Context, clientId string) (*Record, error)
-	Scan(ctx context.Context, f func(*Record)) error
-	Put(ctx context.Context, record *Record) error
+	Get(ctx context.Context, clientId string) (*Product, error)
+	Scan(ctx context.Context, f func(*Product)) error
+	Put(ctx context.Context, record *Product) error
 }
