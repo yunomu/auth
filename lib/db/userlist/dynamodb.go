@@ -2,6 +2,7 @@ package userlist
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -25,8 +26,9 @@ func NewDynamoDB(
 }
 
 type record struct {
-	Email    string   `dynamodbav:"Email"`
-	AppCodes []string `dynamodbav:"AppCodes"`
+	Email     string   `dynamodbav:"Email"`
+	AppCodes  []string `dynamodbav:"AppCodes,omitempty"`
+	Timestamp int64    `dynamodbav:"Timestamp,omitempty"`
 }
 
 func (db *DynamoDB) Get(ctx context.Context, email string) (*User, error) {
@@ -95,8 +97,9 @@ func (db *DynamoDB) Scan(ctx context.Context, f func(*User)) error {
 
 func (db *DynamoDB) Put(ctx context.Context, user *User) error {
 	av, err := dynamodbattribute.MarshalMap(&record{
-		Email:    user.Name,
-		AppCodes: user.AppCodes,
+		Email:     user.Name,
+		AppCodes:  user.AppCodes,
+		Timestamp: time.Now().UnixMicro(),
 	})
 	if err != nil {
 		return err
