@@ -38,7 +38,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
-	rec, err := db.Get(ctx, *c.clientId)
+	rec, _, err := db.Get(ctx, *c.clientId)
 	if err != nil {
 		slog.Error("db.Get", "err", err)
 		return subcommands.ExitFailure

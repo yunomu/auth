@@ -35,7 +35,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
-	if err := db.Scan(ctx, func(u *userlist.User) {
+	if err := db.Scan(ctx, func(u *userlist.User, ts int64) {
 		fmt.Println(u.Name)
 	}); err != nil {
 		slog.Error("scan error")

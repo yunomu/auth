@@ -51,12 +51,12 @@ func NewDynamoDB(
 	}
 }
 
-func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Product, error) {
+func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Product, int64, error) {
 	key, err := dynamodbattribute.MarshalMap(&dynamodbRecord{
 		ClientId: clientId,
 	})
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
 	out, err := d.client.GetItemWithContext(ctx, &dynamodb.GetItemInput{
@@ -64,20 +64,20 @@ func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Product, error) {
 		Key:       key,
 	})
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	} else if len(out.Item) == 0 {
-		return nil, ErrNotFound
+		return nil, -1, ErrNotFound
 	}
 
 	var rec dynamodbRecord
 	if err := dynamodbattribute.UnmarshalMap(out.Item, &rec); err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
-	return fromDynamoDB(&rec), nil
+	return fromDynamoDB(&rec), rec.Timestamp, nil
 }
 
-func (d *DynamoDB) Scan(ctx context.Context, f func(*Product)) error {
+func (d *DynamoDB) Scan(ctx context.Context, f func(*Product, int64)) error {
 	var rerr error
 	if err := d.client.ScanPagesWithContext(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(d.tableName),
@@ -96,7 +96,7 @@ func (d *DynamoDB) Scan(ctx context.Context, f func(*Product)) error {
 		}
 
 		for _, rec := range recs {
-			f(fromDynamoDB(&rec))
+			f(fromDynamoDB(&rec), rec.Timestamp)
 		}
 
 		return true

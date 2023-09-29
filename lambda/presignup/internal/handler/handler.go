@@ -64,7 +64,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 
 	var user *userlist.User
 	g.Go(func() error {
-		u, err := h.userlistDB.Get(ctx, req.UserName)
+		u, _, err := h.userlistDB.Get(ctx, req.UserName)
 		if err == userlist.ErrNoSuchUser {
 			h.logger.Info("no such user", req.UserName, "(null)")
 			return nil
@@ -80,7 +80,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 	var product *productdb.Product
 	g.Go(func() error {
 		clientID := req.CallerContext.ClientID
-		p, err := h.productDB.Get(ctx, clientID)
+		p, _, err := h.productDB.Get(ctx, clientID)
 		if err != nil {
 			return err
 		}

@@ -31,12 +31,12 @@ type record struct {
 	Timestamp int64    `dynamodbav:"Timestamp,omitempty"`
 }
 
-func (db *DynamoDB) Get(ctx context.Context, email string) (*User, error) {
+func (db *DynamoDB) Get(ctx context.Context, email string) (*User, int64, error) {
 	key, err := dynamodbattribute.MarshalMap(&record{
 		Email: email,
 	})
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
 	out, err := db.api.GetItemWithContext(ctx, &dynamodb.GetItemInput{
@@ -44,23 +44,23 @@ func (db *DynamoDB) Get(ctx context.Context, email string) (*User, error) {
 		Key:       key,
 	})
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	} else if len(out.Item) == 0 {
-		return nil, ErrNoSuchUser
+		return nil, -1, ErrNoSuchUser
 	}
 
 	var rec record
 	if err := dynamodbattribute.UnmarshalMap(out.Item, &rec); err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
 	return &User{
 		Name:     rec.Email,
 		AppCodes: rec.AppCodes,
-	}, nil
+	}, rec.Timestamp, nil
 }
 
-func (db *DynamoDB) Scan(ctx context.Context, f func(*User)) error {
+func (db *DynamoDB) Scan(ctx context.Context, f func(*User, int64)) error {
 	var rerr error
 	if err := db.api.ScanPagesWithContext(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(db.table),
@@ -82,7 +82,7 @@ func (db *DynamoDB) Scan(ctx context.Context, f func(*User)) error {
 			f(&User{
 				Name:     rec.Email,
 				AppCodes: rec.AppCodes,
-			})
+			}, rec.Timestamp)
 		}
 
 		return true

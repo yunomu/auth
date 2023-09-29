@@ -67,7 +67,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 
 	var product *productdb.Product
 	g.Go(func() error {
-		rec, err := h.productDB.Get(ctx, req.CallerContext.ClientID)
+		rec, _, err := h.productDB.Get(ctx, req.CallerContext.ClientID)
 		if err != nil {
 			h.logger.Error(err, "productDB.Get")
 			return err
@@ -80,7 +80,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 
 	var user *userlist.User
 	g.Go(func() error {
-		u, err := h.userlistDB.Get(ctx, req.UserName)
+		u, _, err := h.userlistDB.Get(ctx, req.UserName)
 		if err != nil {
 			return err
 		}

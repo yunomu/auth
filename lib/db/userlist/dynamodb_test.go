@@ -22,7 +22,7 @@ func TestDynamoDB_Get(t *testing.T) {
 
 	ctx := context.Background()
 	exp := "test@example.com"
-	res, err := db.Get(ctx, exp)
+	res, _, err := db.Get(ctx, exp)
 	if err != nil {
 		t.Fatalf("unexpected error in db.Get: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestDynamoDB_Get_NoFile(t *testing.T) {
 
 	ctx := context.Background()
 	exp := "test@example.com"
-	res, err := db.Get(ctx, exp)
+	res, _, err := db.Get(ctx, exp)
 	if err != ErrNoSuchUser {
 		t.Logf("res=%v", res)
 		t.Fatalf("unexpected error in db.Get: %v", err)

@@ -45,7 +45,7 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		"FuncArn",
 	})
 
-	if err := db.Scan(ctx, func(rec *productdb.Product) {
+	if err := db.Scan(ctx, func(rec *productdb.Product, ts int64) {
 		w.Write([]string{
 			rec.ClientId,
 			rec.AppCode,

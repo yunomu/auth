@@ -11,17 +11,17 @@ import (
 )
 
 type testUserlistDB struct {
-	GetFn func(context.Context, string) (*userlist.User, error)
+	GetFn func(context.Context, string) (*userlist.User, int64, error)
 }
 
-func (t *testUserlistDB) Get(ctx context.Context, name string) (*userlist.User, error) {
+func (t *testUserlistDB) Get(ctx context.Context, name string) (*userlist.User, int64, error) {
 	if f := t.GetFn; f != nil {
 		return f(ctx, name)
 	}
 	panic("not assigned")
 }
 
-func (t *testUserlistDB) Scan(ctx context.Context, f func(*userlist.User)) error {
+func (t *testUserlistDB) Scan(ctx context.Context, f func(*userlist.User, int64)) error {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -30,17 +30,17 @@ func (t *testUserlistDB) Put(ctx context.Context, user *userlist.User) error {
 }
 
 type testProductDB struct {
-	GetFn func(context.Context, string) (*productdb.Product, error)
+	GetFn func(context.Context, string) (*productdb.Product, int64, error)
 }
 
-func (t *testProductDB) Get(ctx context.Context, clientId string) (*productdb.Product, error) {
+func (t *testProductDB) Get(ctx context.Context, clientId string) (*productdb.Product, int64, error) {
 	if f := t.GetFn; f != nil {
 		return f(ctx, clientId)
 	}
 	panic("not assigned")
 }
 
-func (t *testProductDB) Scan(ctx context.Context, f func(*productdb.Product)) error {
+func (t *testProductDB) Scan(ctx context.Context, f func(*productdb.Product, int64)) error {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -51,18 +51,18 @@ func (t *testProductDB) Put(ctx context.Context, record *productdb.Product) erro
 func TestServe_HasNotPermission(t *testing.T) {
 	h := NewHandler(
 		&testUserlistDB{
-			GetFn: func(_ context.Context, name string) (*userlist.User, error) {
+			GetFn: func(_ context.Context, name string) (*userlist.User, int64, error) {
 				return &userlist.User{
 					Name:     "test@example.com",
 					AppCodes: []string{"aaa", "bbb"},
-				}, nil
+				}, 0, nil
 			},
 		},
 		&testProductDB{
-			GetFn: func(_ context.Context, clientId string) (*productdb.Product, error) {
+			GetFn: func(_ context.Context, clientId string) (*productdb.Product, int64, error) {
 				return &productdb.Product{
 					AppCode: "testapp",
-				}, nil
+				}, 0, nil
 			},
 		},
 	)
