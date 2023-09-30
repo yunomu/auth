@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 )
 
 type DynamoDB struct {
@@ -108,6 +109,36 @@ func (db *DynamoDB) Put(ctx context.Context, user *User) error {
 	if _, err := db.api.PutItemWithContext(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(db.table),
 		Item:      av,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+func (db *DynamoDB) Update(ctx context.Context, user *User, timestamp int64) error {
+	expr, err := expression.NewBuilder().
+		WithCondition(expression.Name("Timestamp").Equal(expression.Value(timestamp))).
+		Build()
+	if err != nil {
+		return err
+	}
+
+	av, err := dynamodbattribute.MarshalMap(&record{
+		Email:     user.Name,
+		AppCodes:  user.AppCodes,
+		Timestamp: time.Now().UnixMicro(),
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := db.api.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(db.table),
+		Item:      av,
+
+		ConditionExpression:       expr.Condition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
 	}); err != nil {
 		return err
 	}
