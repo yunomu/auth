@@ -1,4 +1,4 @@
-package db
+package productdb
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 
 	"github.com/yunomu/auth/lib/db/productdb"
 
-	"github.com/yunomu/auth/cmd/db/get"
-	"github.com/yunomu/auth/cmd/db/list"
-	"github.com/yunomu/auth/cmd/db/put"
+	"github.com/yunomu/auth/cmd/productdb/get"
+	"github.com/yunomu/auth/cmd/productdb/list"
+	"github.com/yunomu/auth/cmd/productdb/put"
 )
 
 type Command struct {
@@ -32,8 +32,8 @@ func NewCommand() *Command {
 	return &Command{}
 }
 
-func (c *Command) Name() string     { return "db" }
-func (c *Command) Synopsis() string { return "db test" }
+func (c *Command) Name() string     { return "productdb" }
+func (c *Command) Synopsis() string { return "productdb utils" }
 func (c *Command) Usage() string {
 	return `
 `

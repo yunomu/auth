@@ -10,7 +10,7 @@ import (
 	"github.com/google/subcommands"
 
 	"github.com/yunomu/auth/cmd/config"
-	"github.com/yunomu/auth/cmd/db"
+	"github.com/yunomu/auth/cmd/productdb"
 	"github.com/yunomu/auth/cmd/userlist"
 )
 
@@ -19,7 +19,7 @@ var (
 )
 
 func init() {
-	subcommands.Register(db.NewCommand(), "")
+	subcommands.Register(productdb.NewCommand(), "")
 	subcommands.Register(userlist.NewCommand(), "")
 	subcommands.Register(config.NewCommand(), "")
 
