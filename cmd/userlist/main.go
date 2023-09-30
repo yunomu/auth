@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 
+	"github.com/yunomu/auth/cmd/userlist/appcode"
 	"github.com/yunomu/auth/cmd/userlist/list"
 	"github.com/yunomu/auth/cmd/userlist/put"
 	"github.com/yunomu/auth/lib/db/userlist"
@@ -46,6 +47,7 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 
 	commander.Register(list.NewCommand(), "")
 	commander.Register(put.NewCommand(), "")
+	commander.Register(appcode.NewCommand(), "")
 
 	c.commander = commander
 }
