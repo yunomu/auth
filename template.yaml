@@ -7,6 +7,15 @@ Parameters:
     Type: String
   Certificate:
     Type: String
+  ConsoleDomainName:
+    Type: String
+  CallbackURL:
+    Type: String
+  LogoutURL:
+    Type: String
+  CloudFrontManagedCachePolicy:
+    Type: String
+    Default: "658327ea-f89d-4fab-a63d-7e88639e58f6"
 
 Resources:
   UserPool:
@@ -61,7 +70,7 @@ Resources:
         - AttributeName: ClientId
           KeyType: HASH
 
-  ProductTableReadOnlyPolicy:
+  ProductTableReadPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       PolicyDocument:
@@ -79,6 +88,21 @@ Resources:
                 - "${TableARN}/index/*"
                 - { TableARN: !GetAtt ProductTable.Arn }
 
+  ProductTableWritePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource:
+              - !GetAtt ProductTable.Arn
+              - !Sub
+                - "${TableARN}/index/*"
+                - { TableARN: !GetAtt ProductTable.Arn }
+
   RestrictionTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -90,7 +114,7 @@ Resources:
         - AttributeName: Email
           KeyType: HASH
 
-  RestrictionTableReadOnlyPolicy:
+  RestrictionTableReadPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       PolicyDocument:
@@ -108,6 +132,21 @@ Resources:
                 - "${TableARN}/index/*"
                 - { TableARN: !GetAtt RestrictionTable.Arn }
 
+  RestrictionTableWritePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource:
+              - !GetAtt RestrictionTable.Arn
+              - !Sub
+                - "${TableARN}/index/*"
+                - { TableARN: !GetAtt RestrictionTable.Arn }
+
   PreSignupFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -117,8 +156,8 @@ Resources:
       Handler: bootstrap
       Runtime: provided.al2
       Policies:
-        - !Ref ProductTableReadOnlyPolicy
-        - !Ref RestrictionTableReadOnlyPolicy
+        - !Ref ProductTableReadPolicy
+        - !Ref RestrictionTableReadPolicy
       Events:
         CognitoEvent:
           Type: Cognito
@@ -140,8 +179,8 @@ Resources:
       Handler: bootstrap
       Runtime: provided.al2
       Policies:
-        - !Ref ProductTableReadOnlyPolicy
-        - !Ref RestrictionTableReadOnlyPolicy
+        - !Ref ProductTableReadPolicy
+        - !Ref RestrictionTableReadPolicy
       Events:
         CognitoEvent:
           Type: Cognito
@@ -152,6 +191,140 @@ Resources:
         Variables:
           REGION: !Ref AWS::Region
           PRODUCT_TABLE: !Ref ProductTable
+          RESTRICTION_TABLE: !Ref RestrictionTable
+
+  AdminUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      SupportedIdentityProviders:
+        - COGNITO
+      GenerateSecret: false
+      CallbackURLs:
+        - !Ref CallbackURL
+      LogoutURLs:
+        - !Ref LogoutURL
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      TokenValidityUnits:
+        IdToken: "hours"
+        AccessToken: "hours"
+        RefreshToken: "days"
+      IdTokenValidity: 1
+      AccessTokenValidity: 1
+      RefreshTokenValidity: 30
+
+  AdminApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - POST
+          - GET
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+      Auth:
+        Authorizers:
+          OAuth2Authorizer:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience:
+                - !Ref AdminUserPoolClient
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+        DefaultAuthorizer: OAuth2Authorizer
+
+  StaticFileBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicPolicy: false
+
+  StaticFileBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticFileBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${StaticFileBucket}/*"
+
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "access-identity-${AWS::StackName}"
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref ConsoleDomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+        DefaultCacheBehavior:
+          CachePolicyId: !Ref CloudFrontManagedCachePolicy
+          TargetOriginId: !Sub "s3-${StaticFileBucket}"
+          ViewerProtocolPolicy: https-only
+          AllowedMethods:
+            - GET
+            - HEAD
+        Origins:
+          - Id: !Sub "s3-${StaticFileBucket}"
+            DomainName: !GetAtt StaticFileBucket.DomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+          - Id: !Sub "api-${AdminApi}"
+            DomainName: !Sub "${AdminApi}.execute-api.${AWS::Region}.amazonaws.com"
+            OriginPath: "/v1"
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+              OriginReadTimeout: 30
+              OriginKeepaliveTimeout: 5
+
+  AdminApiRestrictionFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: api/restrictions/
+      Handler: bootstrap
+      Runtime: provided.al2
+      Policies:
+        - !Ref RestrictionTableReadPolicy
+        - !Ref RestrictionTableWritePolicy
+      Events:
+        API:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: GET
+            Path: /restrictions
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
           RESTRICTION_TABLE: !Ref RestrictionTable
 
 Outputs:
