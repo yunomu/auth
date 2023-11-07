@@ -32,6 +32,11 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	if *c.clientId == "" {
+		slog.Info("clientId is required")
+		return subcommands.ExitFailure
+	}
+
 	db, ok := args[0].(productdb.DB)
 	if !ok {
 		slog.Info("cast error")

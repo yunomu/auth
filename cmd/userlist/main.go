@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/subcommands"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 
@@ -39,6 +40,7 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 	f.SetOutput(os.Stderr)
 
 	c.table = f.String("table", "", "RestrictionTable name")
+	c.region = f.String("region", "ap-northeast-1", "AWS Region")
 
 	commander := subcommands.NewCommander(f, "")
 	commander.Register(commander.FlagsCommand(), "help")
@@ -67,7 +69,7 @@ func (c *Command) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
-	sess, err := session.NewSession()
+	sess, err := session.NewSession(aws.NewConfig().WithRegion(*c.region))
 	if err != nil {
 		slog.Error("NewSession", "err", err)
 		return subcommands.ExitFailure

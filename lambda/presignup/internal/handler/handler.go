@@ -64,7 +64,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 
 	var user *userlist.User
 	g.Go(func() error {
-		u, _, err := h.userlistDB.Get(ctx, req.UserName)
+		u, _, err := h.userlistDB.Get(ctx, req.Request.UserAttributes["email"])
 		if err == userlist.ErrNoSuchUser {
 			h.logger.Info("no such user", req.UserName, "(null)")
 			return nil
@@ -82,6 +82,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 		clientID := req.CallerContext.ClientID
 		p, _, err := h.productDB.Get(ctx, clientID)
 		if err != nil {
+			h.logger.GetProductError(err, clientID, req)
 			return err
 		}
 

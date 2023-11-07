@@ -69,7 +69,7 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 	g.Go(func() error {
 		rec, _, err := h.productDB.Get(ctx, req.CallerContext.ClientID)
 		if err != nil {
-			h.logger.Error(err, "productDB.Get")
+			h.logger.Error(err, "productDB.Get", req)
 			return err
 		}
 
@@ -78,10 +78,12 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 		return nil
 	})
 
+	email := req.Request.UserAttributes["email"]
 	var user *userlist.User
 	g.Go(func() error {
-		u, _, err := h.userlistDB.Get(ctx, req.UserName)
+		u, _, err := h.userlistDB.Get(ctx, email)
 		if err != nil {
+			h.logger.Error(err, "userlistDB.Get", req)
 			return err
 		}
 
@@ -103,8 +105,8 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Request, error) {
 		return req, nil
 	}
 
-	if err := h.preAuthFunc.PreAuthentication(ctx, product.FuncArn, req.UserName); err != nil {
-		h.logger.Error(err, "preAuthFunc.PreAuthentication")
+	if err := h.preAuthFunc.PreAuthentication(ctx, product.FuncArn, email); err != nil {
+		h.logger.Error(err, "preAuthFunc.PreAuthentication", req)
 		return nil, err
 	}
 

@@ -6,13 +6,13 @@ import (
 )
 
 type Logger interface {
-	Error(error, string)
-	Info(string, *Request, *productdb.Product, *userlist.User)
+	Error(err error, msg string, req *Request)
+	Info(msg string, req *Request, product *productdb.Product, user *userlist.User)
 }
 
 type defaultLogger struct{}
 
-func (*defaultLogger) Error(_ error, _ string) {}
+func (*defaultLogger) Error(error, string, *Request) {}
 
 func (*defaultLogger) Info(string, *Request, *productdb.Product, *userlist.User) {
 }

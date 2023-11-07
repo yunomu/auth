@@ -51,11 +51,38 @@ func (h *handlerLogger) Info(msg string, email string, appCode string) {
 	)
 }
 
+func (h *handlerLogger) GetProductError(err error, clientId string, req *handler.Request) {
+	h.logger.Error("GetProductError",
+		"err", err,
+		"clientId", clientId,
+		"req", req,
+	)
+}
+
+type productdbLogger struct {
+	logger *slog.Logger
+}
+
+func (l *productdbLogger) GetError(err error, table string, key map[string]*dynamodb.AttributeValue) {
+	l.logger.Debug("GetError",
+		"err", err,
+		"table", table,
+		"key", key,
+	)
+}
+
+func (l *productdbLogger) GetMarshalMapError(err error, clientId string) {
+	l.logger.Debug("GetError in MarhalMap",
+		"err", err,
+		"clientId", clientId,
+	)
+}
+
 func main() {
 	ctx := context.Background()
 
 	region := os.Getenv("REGION")
-	productTable := os.Getenv("RESTRICTION_TABLE")
+	productTable := os.Getenv("PRODUCT_TABLE")
 	restrictionTable := os.Getenv("RESTRICTION_TABLE")
 
 	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
@@ -75,6 +102,9 @@ func main() {
 		productdb.NewDynamoDB(
 			dynamodb.New(sess),
 			productTable,
+			productdb.SetDynamoDBLogger(&productdbLogger{
+				logger: logger.With("module", "productdb"),
+			}),
 		),
 		handler.SetLogger(&handlerLogger{
 			logger: logger.With("module", "handler"),

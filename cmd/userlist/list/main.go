@@ -2,9 +2,10 @@ package list
 
 import (
 	"context"
+	"encoding/csv"
 	"flag"
-	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/google/subcommands"
 
@@ -35,12 +36,15 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
+	w := csv.NewWriter(os.Stdout)
+
 	if err := db.Scan(ctx, func(u *userlist.User, ts int64) {
-		fmt.Println(u.Name)
+		w.Write(append([]string{u.Name}, u.AppCodes...))
 	}); err != nil {
 		slog.Error("scan error")
 		return subcommands.ExitFailure
 	}
+	w.Flush()
 
 	return subcommands.ExitSuccess
 }

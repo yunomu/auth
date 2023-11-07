@@ -10,9 +10,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 )
 
+type DynamoDBLogger interface {
+	GetError(err error, table string, key map[string]*dynamodb.AttributeValue)
+	GetMarshalMapError(err error, clientId string)
+}
+
 type DynamoDB struct {
 	client    dynamodbiface.DynamoDBAPI
 	tableName string
+	logger    DynamoDBLogger
 }
 
 var _ DB = (*DynamoDB)(nil)
@@ -41,14 +47,38 @@ func fromDynamoDB(r *dynamodbRecord) *Product {
 	}
 }
 
+type defaultDynamoDBLogger struct{}
+
+func (*defaultDynamoDBLogger) GetError(error, string, map[string]*dynamodb.AttributeValue) {}
+func (*defaultDynamoDBLogger) GetMarshalMapError(err error, clientId string)               {}
+
+type DynamoDBOption func(*DynamoDB)
+
+func SetDynamoDBLogger(l DynamoDBLogger) DynamoDBOption {
+	return func(d *DynamoDB) {
+		if l == nil {
+			d.logger = &defaultDynamoDBLogger{}
+		} else {
+			d.logger = l
+		}
+	}
+}
+
 func NewDynamoDB(
 	client dynamodbiface.DynamoDBAPI,
 	tableName string,
+	options ...DynamoDBOption,
 ) *DynamoDB {
-	return &DynamoDB{
+	db := &DynamoDB{
 		client:    client,
 		tableName: tableName,
+		logger:    &defaultDynamoDBLogger{},
 	}
+	for _, f := range options {
+		f(db)
+	}
+
+	return db
 }
 
 func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Product, int64, error) {
@@ -64,6 +94,7 @@ func (d *DynamoDB) Get(ctx context.Context, clientId string) (*Product, int64, e
 		Key:       key,
 	})
 	if err != nil {
+		d.logger.GetError(err, d.tableName, key)
 		return nil, -1, err
 	} else if len(out.Item) == 0 {
 		return nil, -1, ErrNotFound

@@ -258,15 +258,22 @@ Resources:
       PolicyDocument:
         Statement:
           - Effect: Allow
-            Principal: '*'
+            Principal:
+              Service: cloudfront.amazonaws.com
             Action: s3:GetObject
             Resource: !Sub "arn:aws:s3:::${StaticFileBucket}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
 
-  CloudFrontOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub "access-identity-${AWS::StackName}"
+      OriginAccessControlConfig:
+        Name: !Ref AWS::StackName
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   Distribution:
     Type: AWS::CloudFront::Distribution
@@ -287,11 +294,19 @@ Resources:
           AllowedMethods:
             - GET
             - HEAD
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
         Origins:
           - Id: !Sub "s3-${StaticFileBucket}"
-            DomainName: !GetAtt StaticFileBucket.DomainName
+            DomainName: !GetAtt StaticFileBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
             S3OriginConfig:
-              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+              OriginAccessIdentity: ""
           - Id: !Sub "api-${AdminApi}"
             DomainName: !Sub "${AdminApi}.execute-api.${AWS::Region}.amazonaws.com"
             OriginPath: "/v1"
@@ -336,3 +351,9 @@ Outputs:
     Value: !Ref RestrictionTable
   ProductTable:
     Value: !Ref ProductTable
+  AdminUserPoolClientId:
+    Value: !Ref AdminUserPoolClient
+  StaticFileBucket:
+    Value: !Ref StaticFileBucket
+  Distribution:
+    Value: !Ref Distribution

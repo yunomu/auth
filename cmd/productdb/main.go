@@ -14,6 +14,7 @@ import (
 
 	"github.com/yunomu/auth/lib/db/productdb"
 
+	"github.com/yunomu/auth/cmd/productdb/add"
 	"github.com/yunomu/auth/cmd/productdb/get"
 	"github.com/yunomu/auth/cmd/productdb/list"
 	"github.com/yunomu/auth/cmd/productdb/put"
@@ -55,6 +56,7 @@ func (c *Command) SetFlags(f *flag.FlagSet) {
 	commander.Register(get.NewCommand(), "")
 	commander.Register(put.NewCommand(), "")
 	commander.Register(list.NewCommand(), "")
+	commander.Register(add.NewCommand(), "")
 
 	c.commander = commander
 }
