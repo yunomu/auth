@@ -12,8 +12,25 @@ edges =
     }
 
 
-view : { loginUrl : String } -> Element msg
-view model =
+viewUser : String -> Maybe String -> Element msg
+viewUser loginUrl username =
+    Element.el [ Element.alignRight ] <|
+        case username of
+            Just u ->
+                Element.text <| "User: " ++ u
+
+            Nothing ->
+                Element.link []
+                    { url = loginUrl
+                    , label = Element.text "Login/Signup"
+                    }
+
+
+view :
+    String
+    -> Maybe String
+    -> Element msg
+view loginUrl username =
     Element.row
         [ Element.width Element.fill
         , Element.padding 5
@@ -24,8 +41,5 @@ view model =
             ]
           <|
             Element.text "Auth console"
-        , Element.link [ Element.alignRight ]
-            { url = model.loginUrl
-            , label = Element.text "Login/Signup"
-            }
+        , viewUser loginUrl username
         ]

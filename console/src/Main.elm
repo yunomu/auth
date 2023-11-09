@@ -5,10 +5,12 @@ import Browser
 import Browser.Events as Events
 import Browser.Navigation as Nav
 import Element exposing (Element)
+import Element.Lazy as Lazy
 import Html exposing (Html)
 import Http
 import Json.Decode as Decoder exposing (Decoder)
 import Route exposing (Route)
+import Task
 import Url exposing (Url)
 import Url.Builder as UrlBuilder
 import View.Index
@@ -35,10 +37,11 @@ type alias Flags =
 
 
 type Msg
-    = UrlRequest Browser.UrlRequest
+    = NOP
+    | UrlRequest Browser.UrlRequest
     | UrlChanged Url
     | OnResize Int Int
-    | AuthTokenMsg (Result Http.Error Auth.AuthToken)
+    | AuthTokenMsg Msg (Result Http.Error Auth.AuthToken)
     | UserInfoMsg (Result Http.Error Auth.UserInfo)
 
 
@@ -70,10 +73,11 @@ preloadUsername =
 
 init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( { key = key
-      , route = Route.fromUrl url
-      , windowSize = ( flags.windowWidth, flags.windowHeight )
-      , authToken =
+    let
+        authModel =
+            Auth.init flags.authClientId flags.idp
+
+        authToken =
             case ( flags.idToken, flags.accessToken, flags.refreshToken ) of
                 ( Just idToken, Just accessToken, Just refreshToken ) ->
                     Just
@@ -85,6 +89,11 @@ init flags url key =
 
                 _ ->
                     Nothing
+    in
+    ( { key = key
+      , route = Route.fromUrl url
+      , windowSize = ( flags.windowWidth, flags.windowHeight )
+      , authToken = authToken
       , callbackURL = flags.authRedirectURL
       , loginFormURL =
             UrlBuilder.crossOrigin
@@ -96,10 +105,28 @@ init flags url key =
                 ]
       , logoutURL = UrlBuilder.crossOrigin flags.idp [ "logout" ] []
       , logoutRedirectURL = flags.logoutRedirectURL
-      , authModel = Auth.init flags.authClientId flags.idp
+      , authModel = authModel
       }
-    , Nav.pushUrl key (Url.toString url)
+    , Cmd.batch
+        [ Nav.pushUrl key (Url.toString url)
+        , Maybe.withDefault Cmd.none <|
+            Maybe.map
+                (\t ->
+                    Auth.userInfoRequest UserInfoMsg authModel t.accessToken
+                )
+                authToken
+        ]
     )
+
+
+maybe : b -> (a -> b) -> Maybe a -> b
+maybe default f =
+    Maybe.withDefault default << Maybe.map f
+
+
+maybeCmd : Maybe a -> (a -> Cmd msg) -> Cmd msg
+maybeCmd ma f =
+    maybe Cmd.none f ma
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -123,15 +150,12 @@ update msg model =
                     ( model
                     , Cmd.batch
                         [ Nav.pushUrl model.key <| Route.path Route.Index
-                        , case arg.code of
-                            Just code ->
-                                Auth.tokenRequest AuthTokenMsg
+                        , maybeCmd arg.code <|
+                            \code ->
+                                Auth.tokenRequest (AuthTokenMsg NOP)
                                     model.callbackURL
                                     model.authModel
                                     (Auth.AuthorizationCode code)
-
-                            Nothing ->
-                                Cmd.none
                         ]
                     )
 
@@ -143,7 +167,7 @@ update msg model =
         OnResize w h ->
             ( { model | windowSize = ( w, h ) }, Cmd.none )
 
-        AuthTokenMsg result ->
+        AuthTokenMsg nextMsg result ->
             case result of
                 Ok res ->
                     let
@@ -176,39 +200,56 @@ update msg model =
                     in
                     ( { model | authToken = authToken }
                     , Cmd.batch
-                        [ Maybe.withDefault Cmd.none <| Maybe.map (storeTokens << t3) authToken
-                        , Maybe.withDefault Cmd.none <|
-                            Maybe.map
-                                (\t ->
-                                    Auth.userInfoRequest UserInfoMsg model.authModel t.accessToken
-                                )
-                                authToken
+                        [ maybeCmd authToken (storeTokens << t3)
+                        , maybeCmd authToken <|
+                            \t ->
+                                Auth.userInfoRequest UserInfoMsg model.authModel t.accessToken
+                        , Task.perform identity <| Task.succeed nextMsg
                         ]
                     )
 
+                Err (Http.BadStatus 401) ->
+                    ( model
+                    , maybeCmd model.authToken <|
+                        \t ->
+                            Auth.tokenRequest (AuthTokenMsg nextMsg)
+                                model.callbackURL
+                                model.authModel
+                                (Auth.RefreshToken t.refreshToken)
+                    )
+
                 Err _ ->
-                    ( model, Cmd.none )
+                    ( { model | authToken = Nothing }, removeTokens () )
 
         UserInfoMsg res ->
             case res of
                 Ok userInfo ->
-                    let
-                        _ =
-                            Debug.log "userInfo" userInfo
-
-                        authToken =
+                    ( { model
+                        | authToken =
                             Maybe.map
                                 (\t ->
                                     { t | username = Maybe.withDefault preloadUsername userInfo.email }
                                 )
                                 model.authToken
-                    in
-                    ( { model | authToken = authToken }
+                      }
                     , Cmd.none
+                    )
+
+                Err (Http.BadStatus 401) ->
+                    ( model
+                    , maybeCmd model.authToken <|
+                        \t ->
+                            Auth.tokenRequest (AuthTokenMsg msg)
+                                model.callbackURL
+                                model.authModel
+                                (Auth.RefreshToken t.refreshToken)
                     )
 
                 Err _ ->
                     ( model, Cmd.none )
+
+        NOP ->
+            ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -218,13 +259,13 @@ subscriptions _ =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Login test"
+    { title = "Auth console"
     , body =
         [ Element.layout [] <|
             View.Index.view <|
-                View.Org.Header.view
-                    { loginUrl = model.loginFormURL
-                    }
+                Lazy.lazy2 View.Org.Header.view
+                    model.loginFormURL
+                    (Maybe.map (\t -> t.username) model.authToken)
         ]
     }
 
