@@ -1,30 +1,45 @@
 module Auth exposing
-    ( AuthToken
-    , Model
+    ( Model
+    , Msg
+    , Token
     , TokenRequestType(..)
     , UserInfo
     , init
+    , signedRequest
     , tokenRequest
+    , update
     , userInfoRequest
     )
 
 import Http
 import Json.Decode as Decoder exposing (Decoder)
+import Task
 import Url.Builder as UrlBuilder
+
+
+type alias Token =
+    { idToken : String
+    , accessToken : String
+    , refreshToken : String
+    }
 
 
 type alias Model =
     { clientId : String
     , tokenEndpoint : String
     , userInfoEndpoint : String
+    , redirectUri : String
+    , tokens : Maybe Token
     }
 
 
-init : String -> String -> Model
-init clientId idp =
+init : String -> String -> String -> Model
+init clientId idp redirectUri =
     { clientId = clientId
     , tokenEndpoint = UrlBuilder.crossOrigin idp [ "oauth2", "token" ] []
     , userInfoEndpoint = UrlBuilder.crossOrigin idp [ "oauth2", "userInfo" ] []
+    , redirectUri = redirectUri
+    , tokens = Nothing
     }
 
 
@@ -49,41 +64,129 @@ authTokenDecoder =
 
 type TokenRequestType
     = AuthorizationCode String
-    | RefreshToken String
+    | RefreshToken
+
+
+toFormParam : List ( String, String ) -> String
+toFormParam =
+    String.join "&" << List.map (\( a, b ) -> String.join "=" [ a, b ])
 
 
 tokenRequest :
-    (Result Http.Error AuthToken -> msg)
-    -> String
+    msg
+    -> (Msg -> msg)
     -> Model
     -> TokenRequestType
     -> Cmd msg
-tokenRequest authTokenMsg redirectUri model grantType =
-    let
-        addGrantType ls =
-            case grantType of
-                AuthorizationCode code ->
-                    ( "grant_type", "authorization_code" )
-                        :: ( "code", code )
-                        :: ls
-
-                RefreshToken token ->
-                    ( "grant_type", "refresh_token" )
-                        :: ( "refresh_token", token )
-                        :: ls
-    in
-    Http.post
-        { url = model.tokenEndpoint
-        , body =
-            Http.stringBody "application/x-www-form-urlencoded" <|
-                String.join "&" <|
-                    List.map (\( a, b ) -> String.concat [ a, "=", b ]) <|
-                        addGrantType
-                            [ ( "client_id", model.clientId )
-                            , ( "redirect_uri", redirectUri )
+tokenRequest redirectToLoginForm toMsg model grantType =
+    case grantType of
+        AuthorizationCode code ->
+            Http.post
+                { url = model.tokenEndpoint
+                , body =
+                    Http.stringBody "application/x-www-form-urlencoded" <|
+                        toFormParam <|
+                            [ ( "grant_type", "authorization_code" )
+                            , ( "code", code )
+                            , ( "client_id", model.clientId )
+                            , ( "redirect_uri", model.redirectUri )
                             ]
-        , expect = Http.expectJson authTokenMsg authTokenDecoder
+                , expect = Http.expectJson (toMsg << AuthTokenResponse) authTokenDecoder
+                }
+
+        RefreshToken ->
+            case model.tokens of
+                Just tokens ->
+                    Http.post
+                        { url = model.tokenEndpoint
+                        , body =
+                            Http.stringBody "application/x-www-form-urlencoded" <|
+                                toFormParam <|
+                                    [ ( "grant_type", "refresh_token" )
+                                    , ( "refresh_token", tokens.refreshToken )
+                                    , ( "client_id", model.clientId )
+                                    , ( "redirect_uri", model.redirectUri )
+                                    ]
+                        , expect = Http.expectJson (toMsg << AuthTokenResponse) authTokenDecoder
+                        }
+
+                Nothing ->
+                    Task.perform (always redirectToLoginForm) <| Task.succeed ()
+
+
+type Msg
+    = AuthTokenResponse (Result Http.Error AuthToken)
+
+
+maybe : b -> (a -> b) -> Maybe a -> b
+maybe b f =
+    Maybe.withDefault b << Maybe.map f
+
+
+signedRequest :
+    Model
+    ->
+        { method : String
+        , headers : List Http.Header
+        , url : String
+        , body : Http.Body
+        , expect : Http.Expect msg
         }
+    -> Cmd msg
+signedRequest model req =
+    let
+        headers =
+            maybe req.headers
+                (\tokens ->
+                    Http.header "Authorization" tokens.idToken :: req.headers
+                )
+                model.tokens
+    in
+    Http.request
+        { method = req.method
+        , headers = headers
+        , url = req.url
+        , body = req.body
+        , expect = req.expect
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+update :
+    (Result Http.Error Token -> msg)
+    -> Msg
+    -> Model
+    -> ( Model, Cmd msg )
+update authResult msg model =
+    case msg of
+        AuthTokenResponse result ->
+            case result of
+                Ok authToken ->
+                    let
+                        tokens =
+                            { idToken = authToken.idToken
+                            , accessToken = authToken.accessToken
+                            , refreshToken =
+                                case ( authToken.refreshToken, model.tokens ) of
+                                    ( Just refreshToken, _ ) ->
+                                        refreshToken
+
+                                    ( Nothing, Just tokens_ ) ->
+                                        tokens_.refreshToken
+
+                                    ( Nothing, Nothing ) ->
+                                        ""
+                            }
+                    in
+                    ( { model | tokens = Just tokens }
+                    , Task.perform authResult <| Task.succeed <| Ok tokens
+                    )
+
+                Err err ->
+                    ( { model | tokens = Nothing }
+                    , Task.perform authResult <| Task.succeed <| Err err
+                    )
 
 
 type alias UserInfo =
@@ -104,15 +207,20 @@ userInfoDecoder =
 userInfoRequest :
     (Result Http.Error UserInfo -> msg)
     -> Model
-    -> String
     -> Cmd msg
-userInfoRequest userInfoMsg model accessToken =
-    Http.request
-        { method = "POST"
-        , headers = [ Http.header "Authorization" <| "Bearer " ++ accessToken ]
-        , url = model.userInfoEndpoint
-        , body = Http.emptyBody
-        , expect = Http.expectJson userInfoMsg userInfoDecoder
-        , timeout = Nothing
-        , tracker = Nothing
-        }
+userInfoRequest userInfoMsg model =
+    case model.tokens of
+        Just tokens ->
+            Http.request
+                { method = "POST"
+                , headers = [ Http.header "Authorization" <| "Bearer " ++ tokens.accessToken ]
+                , url = model.userInfoEndpoint
+                , body = Http.emptyBody
+                , expect = Http.expectJson userInfoMsg userInfoDecoder
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+
+        Nothing ->
+            -- TODO
+            Cmd.none

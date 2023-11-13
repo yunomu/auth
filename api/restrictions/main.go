@@ -45,6 +45,12 @@ func (h *handlerLogger) Error(err error, msg string, req *handler.Request, args 
 	}, args...)...)
 }
 
+func (h *handlerLogger) Info(msg string, req *handler.Request, args ...interface{}) {
+	h.logger.Info(msg, append([]interface{}{
+		"request", req,
+	}, args...)...)
+}
+
 func main() {
 	ctx := context.Background()
 

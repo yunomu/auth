@@ -1,5 +1,6 @@
 port module Main exposing (main)
 
+import Api
 import Auth
 import Browser
 import Browser.Events as Events
@@ -41,15 +42,18 @@ type Msg
     | UrlRequest Browser.UrlRequest
     | UrlChanged Url
     | OnResize Int Int
-    | AuthTokenMsg Msg (Result Http.Error Auth.AuthToken)
     | UserInfoMsg (Result Http.Error Auth.UserInfo)
+    | ApiResponse (Result Http.Error Api.Response)
+    | AuthResult Msg (Result Http.Error Auth.Token)
+    | RedirectToLoginForm
+    | RedirectToIndex
+    | AuthMsg Msg Auth.Msg
 
 
 type alias Token =
     { idToken : String
     , accessToken : String
     , refreshToken : String
-    , username : String
     }
 
 
@@ -57,12 +61,14 @@ type alias Model =
     { key : Nav.Key
     , route : Route
     , windowSize : ( Int, Int )
-    , authToken : Maybe Token
-    , callbackURL : String
+    , username : String
     , loginFormURL : String
     , logoutURL : String
     , logoutRedirectURL : String
     , authModel : Auth.Model
+    , endpoint : String
+    , headerModel : View.Org.Header.Model
+    , users : List Api.User
     }
 
 
@@ -74,28 +80,7 @@ preloadUsername =
 init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
-        authModel =
-            Auth.init flags.authClientId flags.idp
-
-        authToken =
-            case ( flags.idToken, flags.accessToken, flags.refreshToken ) of
-                ( Just idToken, Just accessToken, Just refreshToken ) ->
-                    Just
-                        { idToken = idToken
-                        , accessToken = accessToken
-                        , refreshToken = refreshToken
-                        , username = preloadUsername
-                        }
-
-                _ ->
-                    Nothing
-    in
-    ( { key = key
-      , route = Route.fromUrl url
-      , windowSize = ( flags.windowWidth, flags.windowHeight )
-      , authToken = authToken
-      , callbackURL = flags.authRedirectURL
-      , loginFormURL =
+        loginFormURL =
             UrlBuilder.crossOrigin
                 flags.idp
                 [ "oauth2", "authorize" ]
@@ -103,18 +88,25 @@ init flags url key =
                 , UrlBuilder.string "client_id" flags.authClientId
                 , UrlBuilder.string "redirect_uri" flags.authRedirectURL
                 ]
+
+        authModel =
+            Auth.init flags.authClientId flags.idp flags.authRedirectURL
+    in
+    ( { key = key
+      , route = Route.fromUrl url
+      , windowSize = ( flags.windowWidth, flags.windowHeight )
+      , username = preloadUsername
+      , loginFormURL = loginFormURL
       , logoutURL = UrlBuilder.crossOrigin flags.idp [ "logout" ] []
       , logoutRedirectURL = flags.logoutRedirectURL
       , authModel = authModel
+      , endpoint = "/v1"
+      , headerModel = View.Org.Header.LoginForm loginFormURL
+      , users = []
       }
     , Cmd.batch
         [ Nav.pushUrl key (Url.toString url)
-        , Maybe.withDefault Cmd.none <|
-            Maybe.map
-                (\t ->
-                    Auth.userInfoRequest UserInfoMsg authModel t.accessToken
-                )
-                authToken
+        , Auth.userInfoRequest UserInfoMsg authModel
         ]
     )
 
@@ -131,7 +123,7 @@ maybeCmd ma f =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
+    case Debug.log "update" msg of
         UrlRequest urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
@@ -145,18 +137,20 @@ update msg model =
                 route =
                     Route.fromUrl url
             in
-            case route of
+            case Debug.log "UrlChanged.route" route of
                 Route.AuthCallback arg ->
                     ( model
-                    , Cmd.batch
-                        [ Nav.pushUrl model.key <| Route.path Route.Index
-                        , maybeCmd arg.code <|
-                            \code ->
-                                Auth.tokenRequest (AuthTokenMsg NOP)
-                                    model.callbackURL
-                                    model.authModel
-                                    (Auth.AuthorizationCode code)
-                        ]
+                    , maybeCmd arg.code <|
+                        \code ->
+                            Auth.tokenRequest RedirectToLoginForm
+                                (AuthMsg RedirectToIndex)
+                                model.authModel
+                                (Auth.AuthorizationCode code)
+                    )
+
+                Route.Index ->
+                    ( { model | route = route }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
                     )
 
                 _ ->
@@ -167,86 +161,81 @@ update msg model =
         OnResize w h ->
             ( { model | windowSize = ( w, h ) }, Cmd.none )
 
-        AuthTokenMsg nextMsg result ->
-            case result of
-                Ok res ->
-                    let
-                        authToken =
-                            case ( res.refreshToken, model.authToken ) of
-                                ( Just refreshToken, mt ) ->
-                                    Just
-                                        { idToken = res.idToken
-                                        , accessToken = res.accessToken
-                                        , refreshToken = refreshToken
-                                        , username =
-                                            Maybe.withDefault preloadUsername <|
-                                                Maybe.map (\t -> t.username) mt
-                                        }
-
-                                ( _, Just authToken_ ) ->
-                                    Just
-                                        { authToken_
-                                            | idToken = res.idToken
-                                            , accessToken = res.accessToken
-                                        }
-
-                                _ ->
-                                    -- not reached
-                                    -- Refresh token requested when there is no refresh token
-                                    Nothing
-
-                        t3 t =
-                            ( t.idToken, t.accessToken, t.refreshToken )
-                    in
-                    ( { model | authToken = authToken }
-                    , Cmd.batch
-                        [ maybeCmd authToken (storeTokens << t3)
-                        , maybeCmd authToken <|
-                            \t ->
-                                Auth.userInfoRequest UserInfoMsg model.authModel t.accessToken
-                        , Task.perform identity <| Task.succeed nextMsg
-                        ]
-                    )
-
-                Err (Http.BadStatus 401) ->
-                    ( model
-                    , maybeCmd model.authToken <|
-                        \t ->
-                            Auth.tokenRequest (AuthTokenMsg nextMsg)
-                                model.callbackURL
-                                model.authModel
-                                (Auth.RefreshToken t.refreshToken)
-                    )
-
-                Err _ ->
-                    ( { model | authToken = Nothing }, removeTokens () )
-
         UserInfoMsg res ->
             case res of
                 Ok userInfo ->
                     ( { model
-                        | authToken =
-                            Maybe.map
-                                (\t ->
-                                    { t | username = Maybe.withDefault preloadUsername userInfo.email }
-                                )
-                                model.authToken
+                        | headerModel =
+                            View.Org.Header.Username <|
+                                Maybe.withDefault preloadUsername userInfo.email
                       }
                     , Cmd.none
                     )
 
                 Err (Http.BadStatus 401) ->
                     ( model
-                    , maybeCmd model.authToken <|
-                        \t ->
-                            Auth.tokenRequest (AuthTokenMsg msg)
-                                model.callbackURL
-                                model.authModel
-                                (Auth.RefreshToken t.refreshToken)
+                    , Auth.tokenRequest RedirectToLoginForm
+                        (AuthMsg msg)
+                        model.authModel
+                        Auth.RefreshToken
                     )
 
                 Err _ ->
                     ( model, Cmd.none )
+
+        ApiResponse apiResponse ->
+            case apiResponse of
+                Ok res ->
+                    case res of
+                        Api.GetUsersResponse users ->
+                            ( { model | users = Debug.log "users" users }
+                            , Cmd.none
+                            )
+
+                Err (Http.BadStatus 401) ->
+                    ( model
+                    , Auth.tokenRequest RedirectToLoginForm
+                        (AuthMsg msg)
+                        model.authModel
+                        Auth.RefreshToken
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        AuthResult prevMsg result ->
+            case result of
+                Ok token ->
+                    ( model
+                    , Cmd.batch
+                        [ storeTokens ( token.idToken, token.accessToken, token.refreshToken )
+                        , Task.perform identity <| Task.succeed prevMsg
+                        ]
+                    )
+
+                Err err ->
+                    let
+                        _ =
+                            Debug.log "autherror" err
+                    in
+                    ( model, Cmd.none )
+
+        RedirectToLoginForm ->
+            ( model, Nav.load model.loginFormURL )
+
+        AuthMsg prevMsg authMsg ->
+            let
+                ( authModel, cmd ) =
+                    Auth.update (AuthResult prevMsg) authMsg model.authModel
+            in
+            ( { model | authModel = authModel }
+            , cmd
+            )
+
+        RedirectToIndex ->
+            ( model
+            , Nav.pushUrl model.key <| Route.path Route.Index
+            )
 
         NOP ->
             ( model, Cmd.none )
@@ -261,11 +250,20 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Auth console"
     , body =
+        let
+            header =
+                Lazy.lazy View.Org.Header.view model.headerModel
+        in
         [ Element.layout [] <|
-            View.Index.view <|
-                Lazy.lazy2 View.Org.Header.view
-                    model.loginFormURL
-                    (Maybe.map (\t -> t.username) model.authToken)
+            case model.route of
+                Route.Index ->
+                    View.Index.view header model.users
+
+                Route.AuthCallback _ ->
+                    Element.none
+
+                Route.NotFound _ ->
+                    Element.text "NotFound"
         ]
     }
 

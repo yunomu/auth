@@ -125,6 +125,7 @@ Resources:
               - dynamodb:GetItem
               - dynamodb:BatchGetItem
               - dynamodb:Query
+              - dynamodb:Scan
               - dynamodb:DescribeTable
             Resource:
               - !GetAtt RestrictionTable.Arn
@@ -275,6 +276,26 @@ Resources:
         SigningBehavior: always
         SigningProtocol: sigv4
 
+  CloudFrontApiCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub "${AWS::StackName}-AuthApiCachePolicy"
+        DefaultTTL: 3600
+        MaxTTL: 3600
+        MinTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          HeadersConfig:
+            HeaderBehavior: whitelist
+            Headers:
+              - Authorization
+          QueryStringsConfig:
+            QueryStringBehavior: all
+          EnableAcceptEncodingBrotli: True
+          EnableAcceptEncodingGzip: True
+
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -287,6 +308,19 @@ Resources:
           AcmCertificateArn: !Ref Certificate
           MinimumProtocolVersion: TLSv1.2_2021
           SslSupportMethod: sni-only
+        CacheBehaviors:
+          - TargetOriginId: !Sub "api-${AdminApi}"
+            CachePolicyId: !Ref CloudFrontApiCachePolicy
+            PathPattern: /v1/*
+            ViewerProtocolPolicy: https-only
+            AllowedMethods:
+              - GET
+              - HEAD
+              - DELETE
+              - OPTIONS
+              - PATCH
+              - POST
+              - PUT
         DefaultCacheBehavior:
           CachePolicyId: !Ref CloudFrontManagedCachePolicy
           TargetOriginId: !Sub "s3-${StaticFileBucket}"
@@ -306,7 +340,7 @@ Resources:
               OriginAccessIdentity: ""
           - Id: !Sub "api-${AdminApi}"
             DomainName: !Sub "${AdminApi}.execute-api.${AWS::Region}.amazonaws.com"
-            OriginPath: "/v1"
+            OriginPath: !Sub "/${AdminApiprodStage}"
             CustomOriginConfig:
               HTTPPort: 80
               HTTPSPort: 443
@@ -333,7 +367,7 @@ Resources:
           Properties:
             ApiId: !Ref AdminApi
             Method: GET
-            Path: /restrictions
+            Path: /v1/restrictions
       Environment:
         Variables:
           REGION: !Ref AWS::Region

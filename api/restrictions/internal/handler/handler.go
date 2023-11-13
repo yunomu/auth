@@ -48,9 +48,9 @@ type Request events.APIGatewayV2HTTPRequest
 type Response events.APIGatewayV2HTTPResponse
 
 type User struct {
-	Email    string   `json:email`
-	AppCodes []string `json:appcodes`
-	Version  int64    `json:version`
+	Email    string   `json:"email"`
+	AppCodes []string `json:"appcodes"`
+	Version  int64    `json:"version"`
 }
 
 func (h *Handler) list(ctx context.Context, req *Request) (*Response, error) {
@@ -84,9 +84,10 @@ func (h *Handler) list(ctx context.Context, req *Request) (*Response, error) {
 
 func (h *Handler) Serve(ctx context.Context, req *Request) (*Response, error) {
 	switch req.RouteKey {
-	case "GET /restrictions":
+	case "GET /v1/restrictions":
 		return h.list(ctx, req)
 	default:
+		h.logger.Info("not found", req)
 		return &Response{
 			StatusCode: 404,
 			Body:       "NotFound",

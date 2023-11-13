@@ -1,7 +1,15 @@
-module View.Org.Header exposing (view)
+module View.Org.Header exposing
+    ( Model(..)
+    , view
+    )
 
 import Element exposing (Element)
 import Element.Border as Border
+
+
+type Model
+    = LoginForm String
+    | Username String
 
 
 edges =
@@ -12,25 +20,22 @@ edges =
     }
 
 
-viewUser : String -> Maybe String -> Element msg
-viewUser loginUrl username =
+viewUser : Model -> Element msg
+viewUser model =
     Element.el [ Element.alignRight ] <|
-        case username of
-            Just u ->
+        case model of
+            Username u ->
                 Element.text <| "User: " ++ u
 
-            Nothing ->
+            LoginForm url ->
                 Element.link []
-                    { url = loginUrl
+                    { url = url
                     , label = Element.text "Login/Signup"
                     }
 
 
-view :
-    String
-    -> Maybe String
-    -> Element msg
-view loginUrl username =
+view : Model -> Element msg
+view model =
     Element.row
         [ Element.width Element.fill
         , Element.padding 5
@@ -41,5 +46,5 @@ view loginUrl username =
             ]
           <|
             Element.text "Auth console"
-        , viewUser loginUrl username
+        , viewUser model
         ]
