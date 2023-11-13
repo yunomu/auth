@@ -123,7 +123,7 @@ maybeCmd ma f =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case Debug.log "update" msg of
+    case msg of
         UrlRequest urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
@@ -137,7 +137,7 @@ update msg model =
                 route =
                     Route.fromUrl url
             in
-            case Debug.log "UrlChanged.route" route of
+            case route of
                 Route.AuthCallback arg ->
                     ( model
                     , maybeCmd arg.code <|
@@ -188,7 +188,7 @@ update msg model =
                 Ok res ->
                     case res of
                         Api.GetUsersResponse users ->
-                            ( { model | users = Debug.log "users" users }
+                            ( { model | users = users }
                             , Cmd.none
                             )
 
@@ -214,10 +214,6 @@ update msg model =
                     )
 
                 Err err ->
-                    let
-                        _ =
-                            Debug.log "autherror" err
-                    in
                     ( model, Cmd.none )
 
         RedirectToLoginForm ->
