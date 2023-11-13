@@ -7,7 +7,7 @@ PUBLISH_DIR=public
 elm:
 	elm make $(ELM_DIR)/Main.elm --output=static/main.js
 
-elm-release:
+release:
 	rm -rf $(PUBLISH_DIR)
 	cp -r static $(PUBLISH_DIR)
 	elm make $(ELM_DIR)/Main.elm --output=static/main.opt.js --optimize
