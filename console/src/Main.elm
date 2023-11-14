@@ -10,6 +10,7 @@ import Element.Lazy as Lazy
 import Html exposing (Html)
 import Http
 import Json.Decode as Decoder exposing (Decoder)
+import Proto.Api
 import Route exposing (Route)
 import Task
 import Url exposing (Url)
@@ -68,7 +69,7 @@ type alias Model =
     , authModel : Auth.Model
     , endpoint : String
     , headerModel : View.Org.Header.Model
-    , users : List Api.User
+    , users : List Proto.Api.User
     }
 
 

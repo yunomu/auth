@@ -2,11 +2,12 @@ module View.Index exposing (view)
 
 import Api
 import Element exposing (Element)
+import Proto.Api
 import View.Atom.Table
 import View.Template.Main
 
 
-view : Element msg -> List Api.User -> Element msg
+view : Element msg -> List Proto.Api.User -> Element msg
 view header users =
     View.Template.Main.view header <|
         if List.isEmpty users then

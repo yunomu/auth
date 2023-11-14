@@ -5,15 +5,41 @@ import (
 	"encoding/json"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/aws/aws-lambda-go/events"
 
 	"github.com/yunomu/auth/lib/db/userlist"
+	apipb "github.com/yunomu/auth/proto/api"
 )
+
+type Request events.APIGatewayV2HTTPRequest
+type Response events.APIGatewayV2HTTPResponse
 
 type Handler struct {
 	userlistDB userlist.DB
 
+	handlers map[string]func(context.Context, *Request) (proto.Message, error)
+
 	logger Logger
+}
+
+func (h *Handler) list(ctx context.Context, req *Request) (proto.Message, error) {
+	var users []*apipb.User
+	if err := h.userlistDB.Scan(ctx, func(user *userlist.User, ts int64) {
+		users = append(users, &apipb.User{
+			Email:    user.Name,
+			AppCodes: user.AppCodes,
+			Version:  ts,
+		})
+	}); err != nil {
+		h.logger.Error(err, "userlist.DB.Scan", req)
+		return nil, err
+	}
+
+	return &apipb.RestrictionsResponse{
+		Users: users,
+	}, nil
 }
 
 type Option func(*Handler)
@@ -41,35 +67,33 @@ func NewHandler(
 		f(h)
 	}
 
+	h.handlers = map[string]func(context.Context, *Request) (proto.Message, error){
+		"GET /v1/restrictions": h.list,
+	}
+
 	return h
 }
 
-type Request events.APIGatewayV2HTTPRequest
-type Response events.APIGatewayV2HTTPResponse
+func (h *Handler) Serve(ctx context.Context, req *Request) (*Response, error) {
+	handler, ok := h.handlers[req.RouteKey]
+	if !ok {
+		h.logger.Info("not found", req)
+		return &Response{
+			StatusCode: 404,
+			Body:       "NotFound",
+		}, nil
+	}
 
-type User struct {
-	Email    string   `json:"email"`
-	AppCodes []string `json:"appcodes"`
-	Version  int64    `json:"version"`
-}
-
-func (h *Handler) list(ctx context.Context, req *Request) (*Response, error) {
-	var users []*User
-	if err := h.userlistDB.Scan(ctx, func(user *userlist.User, ts int64) {
-		users = append(users, &User{
-			Email:    user.Name,
-			AppCodes: user.AppCodes,
-			Version:  ts,
-		})
-	}); err != nil {
-		h.logger.Error(err, "userlist.DB.Scan", req)
+	res, err := handler(ctx, req)
+	if err != nil {
+		h.logger.Error(err, "handler error", req)
 		return nil, err
 	}
 
 	var buf strings.Builder
 	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(users); err != nil {
-		h.logger.Error(err, "json.Encoder.Encode", req, "users", users)
+	if err := enc.Encode(res); err != nil {
+		h.logger.Error(err, "json.Encoder.Encode", req, "response", res)
 		return nil, err
 	}
 
@@ -79,25 +103,5 @@ func (h *Handler) list(ctx context.Context, req *Request) (*Response, error) {
 			"Content-Type": "application/json",
 		},
 		Body: buf.String(),
-	}, nil
-}
-
-func (h *Handler) Serve(ctx context.Context, req *Request) (*Response, error) {
-	switch req.RouteKey {
-	case "GET /v1/restrictions":
-		return h.list(ctx, req)
-	default:
-		h.logger.Info("not found", req)
-		return &Response{
-			StatusCode: 404,
-			Body:       "NotFound",
-		}, nil
-	}
-
-	// not reached
-	h.logger.Error(nil, "not reached", req)
-	return &Response{
-		StatusCode: 503,
-		Body:       "InternalError",
 	}, nil
 }

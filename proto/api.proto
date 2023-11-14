@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "proto/api";
+
+message User {
+  string email = 1;
+  repeated string app_codes = 2;
+  int64 version = 3;
+}
+
+message RestrictionsResponse {
+  repeated User users = 1;
+}

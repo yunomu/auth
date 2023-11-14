@@ -1,36 +1,21 @@
 module Api exposing
     ( Request(..)
     , Response(..)
-    , User
     , request
     )
 
 import Auth
 import Http
 import Json.Decode as Decode exposing (Decoder)
+import Proto.Api
 
 
 type Request
     = GetUsersRequest
 
 
-type alias User =
-    { email : String
-    , appCodes : List String
-    , version : Int
-    }
-
-
-decodeUser : Decoder User
-decodeUser =
-    Decode.map3 User
-        (Decode.field "email" Decode.string)
-        (Decode.field "appcodes" <| Decode.list Decode.string)
-        (Decode.field "version" Decode.int)
-
-
 type Response
-    = GetUsersResponse (List User)
+    = GetUsersResponse (List Proto.Api.User)
 
 
 type alias Op =
@@ -45,7 +30,13 @@ mkOp : Request -> Op
 mkOp req =
     case req of
         GetUsersRequest ->
-            Op "GET" "/restrictions" Http.emptyBody (Decode.map GetUsersResponse <| Decode.list decodeUser)
+            { method = "GET"
+            , path = "/restrictions"
+            , body = Http.emptyBody
+            , decoder =
+                Decode.map (\r -> GetUsersResponse r.users) <|
+                    Proto.Api.restrictionsResponseDecoder
+            }
 
 
 maybe : b -> (a -> b) -> Maybe a -> b
