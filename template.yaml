@@ -81,6 +81,7 @@ Resources:
               - dynamodb:GetItem
               - dynamodb:BatchGetItem
               - dynamodb:Query
+              - dynamodb:Scan
               - dynamodb:DescribeTable
             Resource:
               - !GetAtt ProductTable.Arn
@@ -233,6 +234,8 @@ Resources:
         AllowMethods:
           - POST
           - GET
+          - PUT
+          - DELETE
           - OPTIONS
         AllowOrigins:
           - '*'
@@ -372,6 +375,29 @@ Resources:
         Variables:
           REGION: !Ref AWS::Region
           RESTRICTION_TABLE: !Ref RestrictionTable
+
+  AdminApiProductFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: api/products/
+      Handler: bootstrap
+      Runtime: provided.al2
+      Policies:
+        - !Ref ProductTableReadPolicy
+        - !Ref ProductTableWritePolicy
+      Events:
+        API:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: GET
+            Path: /v1/products
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          PRODUCT_TABLE: !Ref ProductTable
 
 Outputs:
   UserPoolId:

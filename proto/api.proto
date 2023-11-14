@@ -13,3 +13,14 @@ message User {
 message RestrictionsResponse {
   repeated User users = 1;
 }
+
+message Product {
+  string client_id = 1;
+  string app_code = 2;
+  string func_arn = 3;
+  int64 version = 4;
+}
+
+message ProductsResponse {
+  repeated Product products = 1;
+}
