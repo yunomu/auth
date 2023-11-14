@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -17,7 +18,9 @@ type Request events.APIGatewayV2HTTPRequest
 type Response events.APIGatewayV2HTTPResponse
 
 type Handler struct {
-	userlistDB userlist.DB
+	userlistDB  userlist.DB
+	marshaler   proto.MarshalOptions
+	unmarshaler proto.UnmarshalOptions
 
 	handlers map[string]func(context.Context, *Request) (proto.Message, error)
 
@@ -42,6 +45,38 @@ func (h *Handler) list(ctx context.Context, req *Request) (proto.Message, error)
 	}, nil
 }
 
+func (h *Handler) post(ctx context.Context, req *Request) (proto.Message, error) {
+	var user apipb.User
+	if err := h.unmarshaler.Unmarshal([]byte(req.Body), &user); err != nil {
+		return nil, err
+	}
+
+	version, err := h.userlistDB.Put(ctx, &userlist.User{
+		Name:     user.Email,
+		AppCodes: user.AppCodes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	user.Version = version
+
+	return &apipb.RestrictionResponse{
+		User: &user,
+	}, nil
+}
+
+func (h *Handler) get(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
+func (h *Handler) put(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
+func (h *Handler) delete(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
 type Option func(*Handler)
 
 func SetLogger(l Logger) Option {
@@ -60,6 +95,10 @@ func NewHandler(
 ) *Handler {
 	h := &Handler{
 		userlistDB: userlistDB,
+		marshaler:  proto.MarshalOptions{},
+		unmarshaler: proto.UnmarshalOptions{
+			DiscardUnknown: true,
+		},
 
 		logger: &defaultLogger{},
 	}
@@ -68,7 +107,11 @@ func NewHandler(
 	}
 
 	h.handlers = map[string]func(context.Context, *Request) (proto.Message, error){
-		"GET /v1/restrictions": h.list,
+		"GET /v1/restrictions":            h.list,
+		"POST /v1/restrictions":           h.post,
+		"GET /v1/restrictions/{email}":    h.get,
+		"PUT /v1/restrictions/{email}":    h.put,
+		"DELETE /v1/restrictions/{email}": h.delete,
 	}
 
 	return h
@@ -91,10 +134,12 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Response, error) {
 	}
 
 	var buf strings.Builder
-	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(res); err != nil {
-		h.logger.Error(err, "json.Encoder.Encode", req, "response", res)
-		return nil, err
+	if res != nil {
+		enc := json.NewEncoder(&buf)
+		if err := enc.Encode(res); err != nil {
+			h.logger.Error(err, "json.Encoder.Encode", req, "response", res)
+			return nil, err
+		}
 	}
 
 	return &Response{

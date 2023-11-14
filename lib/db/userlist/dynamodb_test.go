@@ -72,9 +72,10 @@ func TestDynamoDB_Put(t *testing.T) {
 	}, "table")
 
 	ctx := context.Background()
-	if err := db.Put(ctx, &User{
+	_, err := db.Put(ctx, &User{
 		Name: "test@example.com",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("PutError: %v", err)
 	}
 }

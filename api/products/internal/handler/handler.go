@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -43,6 +44,22 @@ func (h *Handler) list(ctx context.Context, req *Request) (proto.Message, error)
 	}, nil
 }
 
+func (h *Handler) post(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
+func (h *Handler) get(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
+func (h *Handler) put(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
+func (h *Handler) delete(ctx context.Context, req *Request) (proto.Message, error) {
+	return nil, errors.New("not implement")
+}
+
 type Option func(*Handler)
 
 func SetLogger(l Logger) Option {
@@ -69,7 +86,11 @@ func NewHandler(
 	}
 
 	h.handlers = map[string]func(context.Context, *Request) (proto.Message, error){
-		"GET /v1/products": h.list,
+		"GET /v1/products":               h.list,
+		"POST /v1/products":              h.post,
+		"GET /v1/products/{clientId}":    h.get,
+		"PUT /v1/products/{clientId}":    h.put,
+		"DELETE /v1/products/{clientId}": h.delete,
 	}
 
 	return h

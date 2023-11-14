@@ -365,12 +365,36 @@ Resources:
         - !Ref RestrictionTableReadPolicy
         - !Ref RestrictionTableWritePolicy
       Events:
-        API:
+        ListAPI:
           Type: HttpApi
           Properties:
             ApiId: !Ref AdminApi
             Method: GET
             Path: /v1/restrictions
+        PostAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: POST
+            Path: /v1/restrictions
+        GetAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: GET
+            Path: /v1/restrictions/{email}
+        PutAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: PUT
+            Path: /v1/restrictions/{email}
+        DeleteAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: DELETE
+            Path: /v1/restrictions/{email}
       Environment:
         Variables:
           REGION: !Ref AWS::Region
@@ -388,12 +412,36 @@ Resources:
         - !Ref ProductTableReadPolicy
         - !Ref ProductTableWritePolicy
       Events:
-        API:
+        ListAPI:
           Type: HttpApi
           Properties:
             ApiId: !Ref AdminApi
             Method: GET
             Path: /v1/products
+        PostAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: POST
+            Path: /v1/products
+        GetAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: GET
+            Path: /v1/products/{clientId}
+        PutAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: PUT
+            Path: /v1/products/{clientId}
+        DeleteAPI:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AdminApi
+            Method: DELETE
+            Path: /v1/products/{clientId}
       Environment:
         Variables:
           REGION: !Ref AWS::Region

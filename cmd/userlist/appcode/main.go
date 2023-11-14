@@ -101,10 +101,13 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 	user.AppCodes = addCodes(user.AppCodes, strings.Split(*c.add, ","))
 	user.AppCodes = delCodes(user.AppCodes, strings.Split(*c.del, ","))
 
-	if err := db.Put(ctx, user); err != nil {
+	version, err := db.Put(ctx, user)
+	if err != nil {
 		slog.Error("db.Put", "err", err)
 		return subcommands.ExitFailure
 	}
+
+	slog.Info("Success", "version", version)
 
 	return subcommands.ExitSuccess
 }

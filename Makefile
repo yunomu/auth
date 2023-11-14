@@ -1,4 +1,4 @@
-.PHONY: build clean proto proto-clean aaa
+.PHONY: build clean proto proto-clean check
 
 ELM_DIR=console/src
 
@@ -9,6 +9,10 @@ build: proto
 	sam build
 
 proto: $(PROTO_TARGETS) $(PROTO_ELM_TARGETS)
+
+check:
+	go test ./...
+	sam validate --lint
 
 clean:
 	rm -rf .aws-sam
