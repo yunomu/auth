@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
@@ -116,21 +117,25 @@ func (db *DynamoDB) Put(ctx context.Context, user *User) (int64, error) {
 
 	return timestamp, nil
 }
-func (db *DynamoDB) Update(ctx context.Context, user *User, timestamp int64) error {
+func (db *DynamoDB) Update(ctx context.Context, user *User, timestamp int64) (int64, error) {
 	expr, err := expression.NewBuilder().
-		WithCondition(expression.Name("Timestamp").Equal(expression.Value(timestamp))).
+		WithCondition(expression.Or(
+			expression.AttributeNotExists(expression.Name("Timestamp")),
+			expression.Name("Timestamp").Equal(expression.Value(timestamp)),
+		)).
 		Build()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
+	now := time.Now().UnixMicro()
 	av, err := dynamodbattribute.MarshalMap(&record{
 		Email:     user.Name,
 		AppCodes:  user.AppCodes,
-		Timestamp: time.Now().UnixMicro(),
+		Timestamp: now,
 	})
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if _, err := db.api.PutItemWithContext(ctx, &dynamodb.PutItemInput{
@@ -141,6 +146,54 @@ func (db *DynamoDB) Update(ctx context.Context, user *User, timestamp int64) err
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case dynamodb.ErrCodeConditionalCheckFailedException:
+				return 0, ErrOptimisticLock
+			default:
+				// do nothing
+			}
+		}
+		return 0, err
+	}
+
+	return now, nil
+}
+
+func (db *DynamoDB) Delete(ctx context.Context, email string, timestamp int64) error {
+	key, err := dynamodbattribute.MarshalMap(&record{
+		Email: email,
+	})
+	if err != nil {
+		return err
+	}
+
+	expr, err := expression.NewBuilder().
+		WithCondition(expression.And(
+			expression.AttributeExists(expression.Name("Timestamp")),
+			expression.Name("Timestamp").Equal(expression.Value(timestamp)),
+		)).
+		Build()
+	if err != nil {
+		return err
+	}
+
+	if _, err := db.api.DeleteItemWithContext(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(db.table),
+		Key:       key,
+
+		ConditionExpression:       expr.Condition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case dynamodb.ErrCodeConditionalCheckFailedException:
+				return ErrOptimisticLock
+			default:
+				// do nothing
+			}
+		}
 		return err
 	}
 

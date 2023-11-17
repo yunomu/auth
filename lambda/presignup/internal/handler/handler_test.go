@@ -29,7 +29,11 @@ func (t *testUserlistDB) Put(ctx context.Context, user *userlist.User) (int64, e
 	panic("not implemented") // TODO: Implement
 }
 
-func (t *testUserlistDB) Update(ctx context.Context, user *userlist.User, timestamp int64) error {
+func (t *testUserlistDB) Update(ctx context.Context, user *userlist.User, timestamp int64) (int64, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (t *testUserlistDB) Delete(ctx context.Context, name string, version int64) error {
 	panic("not implemented") // TODO: Implement
 }
 
