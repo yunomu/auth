@@ -43,10 +43,12 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
-	if err := db.Put(ctx, &rec); err != nil {
+	version, err := db.Put(ctx, &rec)
+	if err != nil {
 		slog.Error("db.Put", "err", err)
 		return subcommands.ExitFailure
 	}
+	slog.Info("SUCCESS", "version", version)
 
 	return subcommands.ExitSuccess
 }

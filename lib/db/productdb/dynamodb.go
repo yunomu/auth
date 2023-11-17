@@ -140,20 +140,20 @@ func (d *DynamoDB) Scan(ctx context.Context, f func(*Product, int64)) error {
 	return nil
 }
 
-func (d *DynamoDB) Put(ctx context.Context, product *Product) error {
+func (d *DynamoDB) Put(ctx context.Context, product *Product) (int64, error) {
 	ts := time.Now().UnixMicro()
 
 	av, err := dynamodbattribute.MarshalMap(toDynamoDB(product, ts))
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if _, err := d.client.PutItemWithContext(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(d.tableName),
 		Item:      av,
 	}); err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return ts, nil
 }

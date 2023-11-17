@@ -49,14 +49,16 @@ func (c *Command) Execute(ctx context.Context, _ *flag.FlagSet, args ...interfac
 		return subcommands.ExitFailure
 	}
 
-	if err := db.Put(ctx, &productdb.Product{
+	version, err := db.Put(ctx, &productdb.Product{
 		ClientId: *c.clientId,
 		AppCode:  *c.appCode,
 		FuncArn:  *c.funcArn,
-	}); err != nil {
+	})
+	if err != nil {
 		slog.Error("db.Put", "err", err)
 		return subcommands.ExitFailure
 	}
+	slog.Info("SUCCESS", "version", version)
 
 	return subcommands.ExitSuccess
 }

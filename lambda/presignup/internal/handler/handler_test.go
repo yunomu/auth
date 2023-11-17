@@ -52,7 +52,7 @@ func (t *testProductDB) Scan(ctx context.Context, f func(*productdb.Product, int
 	panic("not implemented") // TODO: Implement
 }
 
-func (t *testProductDB) Put(ctx context.Context, record *productdb.Product) error {
+func (t *testProductDB) Put(ctx context.Context, record *productdb.Product) (int64, error) {
 	panic("not implemented") // TODO: Implement
 }
 
