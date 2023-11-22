@@ -5,9 +5,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 )
 
 type DynamoDBLogger interface {
@@ -156,4 +158,83 @@ func (d *DynamoDB) Put(ctx context.Context, product *Product) (int64, error) {
 	}
 
 	return ts, nil
+}
+
+func (d *DynamoDB) Update(ctx context.Context, product *Product, version int64) (int64, error) {
+	expr, err := expression.NewBuilder().
+		WithCondition(expression.Or(
+			expression.AttributeNotExists(expression.Name("Timestamp")),
+			expression.Name("Timestamp").Equal(expression.Value(version)),
+		)).
+		Build()
+	if err != nil {
+		return 0, err
+	}
+
+	newVersion := time.Now().UnixMicro()
+	av, err := dynamodbattribute.MarshalMap(toDynamoDB(product, newVersion))
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err := d.client.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(d.tableName),
+		Item:      av,
+
+		ConditionExpression:       expr.Condition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case dynamodb.ErrCodeConditionalCheckFailedException:
+				return 0, ErrOptimisticLock
+			default:
+				// do nothing
+			}
+		}
+		return 0, err
+	}
+
+	return newVersion, nil
+}
+
+func (d *DynamoDB) Delete(ctx context.Context, clientId string, version int64) error {
+	expr, err := expression.NewBuilder().
+		WithCondition(expression.And(
+			expression.AttributeExists(expression.Name("Timestamp")),
+			expression.Name("Timestamp").Equal(expression.Value(version)),
+		)).
+		Build()
+	if err != nil {
+		return err
+	}
+
+	key, err := dynamodbattribute.MarshalMap(&dynamodbRecord{
+		ClientId: clientId,
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := d.client.DeleteItemWithContext(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(d.tableName),
+		Key:       key,
+
+		ConditionExpression:       expr.Condition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case dynamodb.ErrCodeConditionalCheckFailedException:
+				return ErrOptimisticLock
+			default:
+				// do nothing
+			}
+		}
+		return err
+	}
+
+	return nil
 }
