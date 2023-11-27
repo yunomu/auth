@@ -1,15 +1,44 @@
-.PHONY: build clean deploy proto proto-clean elm
+.PHONY: build clean release
 
-ELM_DIR=src
+ELM_DIR			= src
+PUBLISH_DIR		= public
+RESOURCE_DIR	= static
+FILES			= index.html favicon.ico
+OUTPUT			= static/main.js
 
-PUBLISH_DIR=public
+RESOURCES		= $(addprefix $(RESOURCE_DIR)/,$(FILES))
+TMPDIR			= .tmp
+OPTIMIZED		= $(TMPDIR)/optimized.js
+UGLIFIED		= $(TMPDIR)/uglified.js
+RESOURCES_PUB	= $(addprefix $(PUBLISH_DIR)/,$(FILES))
+TARGET			= $(PUBLISH_DIR)/main.js
 
-elm:
-	elm make $(ELM_DIR)/Main.elm --output=static/main.js
 
-release:
-	rm -rf $(PUBLISH_DIR)
-	cp -r static $(PUBLISH_DIR)
-	elm make $(ELM_DIR)/Main.elm --output=static/main.opt.js --optimize
-	uglifyjs --compress --mangle -- static/main.opt.js > public/main.js
-	rm -f static/main.opt.js $(PUBLISH_DIR)/config.json
+build: $(OUTPUT)
+
+$(OUTPUT):
+	elm make $(ELM_DIR)/Main.elm --output=$@
+
+clean:
+	rm -rf $(OUTPUT) $(PUBLISH_DIR) $(TMPDIR)
+
+$(PUBLISH_DIR):
+	mkdir $@
+
+$(TMPDIR):
+	mkdir $@
+
+$(OPTIMIZED): $(TMPDIR)
+	elm make $(ELM_DIR)/Main.elm --output=$@ --optimize
+
+$(UGLIFIED): $(OPTIMIZED)
+	uglifyjs --compress --mangle -- $^ > $@
+
+$(TARGET): $(PUBLISH_DIR) $(UGLIFIED)
+	cp $(UGLIFIED) $@
+
+$(PUBLISH_DIR)/%: $(RESOURCE_DIR)/%
+	cp $< $@
+
+release: clean $(TARGET) $(RESOURCES_PUB)
+	rm -rf $(TMPDIR)
