@@ -1,6 +1,7 @@
 .PHONY: build clean release
 
 ELM_DIR			= src
+SRCS			= $(shell find $(ELM_DIR) -regex '.*\.elm')
 PUBLISH_DIR		= public
 RESOURCE_DIR	= static
 FILES			= index.html favicon.ico
@@ -16,7 +17,7 @@ TARGET			= $(PUBLISH_DIR)/main.js
 
 build: $(OUTPUT)
 
-$(OUTPUT):
+$(OUTPUT): $(SRCS)
 	elm make $(ELM_DIR)/Main.elm --output=$@
 
 clean:
