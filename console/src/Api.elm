@@ -7,22 +7,43 @@ module Api exposing
 import Auth
 import Http
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Proto.Api
+import Url.Builder as B
 
 
 type Request
     = GetUsersRequest
+    | PostUserRequest Proto.Api.User
+    | PutUserRequest Proto.Api.User
+    | DeleteUserRequest String
+    | GetProductsRequest
+    | PostProductRequest Proto.Api.Product
+    | PutProductRequest Proto.Api.Product
+    | DeleteProductRequest String
 
 
 type Response
     = GetUsersResponse (List Proto.Api.User)
+    | PostUserResponse Proto.Api.User
+    | PutUserResponse Proto.Api.User
+    | DeleteUserResponse String
+    | GetProductsResponse (List Proto.Api.Product)
+    | PostProductResponse Proto.Api.Product
+    | PutProductResponse Proto.Api.Product
+    | DeleteProductResponse String
+
+
+type ResponseDecoder
+    = Json (Decoder Response)
+    | Empty Response
 
 
 type alias Op =
     { method : String
     , path : String
     , body : Http.Body
-    , decoder : Decoder Response
+    , decoder : ResponseDecoder
     }
 
 
@@ -31,11 +52,84 @@ mkOp req =
     case req of
         GetUsersRequest ->
             { method = "GET"
-            , path = "/restrictions"
+            , path = B.absolute [ "restrictions" ] []
             , body = Http.emptyBody
             , decoder =
-                Decode.map (\r -> GetUsersResponse r.users) <|
-                    Proto.Api.restrictionsResponseDecoder
+                Json <| Decode.map (\r -> GetUsersResponse r.users) Proto.Api.restrictionsResponseDecoder
+            }
+
+        PostUserRequest user ->
+            { method = "POST"
+            , path = B.absolute [ "restrictions" ] []
+            , body = Http.jsonBody <| Proto.Api.userEncoder user
+            , decoder =
+                Json <|
+                    Decode.andThen
+                        (\r ->
+                            case r.user of
+                                Just u ->
+                                    Decode.succeed (PostUserResponse u)
+
+                                Nothing ->
+                                    Decode.fail "empty response"
+                        )
+                        Proto.Api.restrictionResponseDecoder
+            }
+
+        PutUserRequest user ->
+            { method = "PUT"
+            , path = B.absolute [ "restrictions", user.email ] []
+            , body = Http.jsonBody <| Proto.Api.userEncoder user
+            , decoder = Empty (PutUserResponse user)
+            }
+
+        DeleteUserRequest id ->
+            { method = "DELETE"
+            , path = B.absolute [ "restrictions", id ] []
+            , body = Http.emptyBody
+            , decoder = Empty (DeleteUserResponse id)
+            }
+
+        GetProductsRequest ->
+            { method = "GET"
+            , path = B.absolute [ "products" ] []
+            , body = Http.emptyBody
+            , decoder =
+                Json <|
+                    Decode.map (\r -> GetProductsResponse r.products) <|
+                        Proto.Api.productsResponseDecoder
+            }
+
+        PostProductRequest product ->
+            { method = "POST"
+            , path = B.absolute [ "products" ] []
+            , body = Http.jsonBody <| Proto.Api.productEncoder product
+            , decoder =
+                Json <|
+                    Decode.andThen
+                        (\r ->
+                            case r.product of
+                                Just p ->
+                                    Decode.succeed (PostProductResponse p)
+
+                                Nothing ->
+                                    Decode.fail "empty response"
+                        )
+                        Proto.Api.productResponseDecoder
+            }
+
+        PutProductRequest product ->
+            { method = "PUT"
+            , path = B.absolute [ "products", product.clientId ] []
+            , body = Http.jsonBody <| Proto.Api.productEncoder product
+            , decoder = Empty (PutProductResponse product)
+            }
+
+        DeleteProductRequest id ->
+            { method = "DELETE"
+            , path = B.absolute [ "products", id ] []
+            , body = Http.emptyBody
+            , decoder = Empty (DeleteProductResponse id)
             }
 
 
@@ -55,5 +149,11 @@ request toMsg endpoint authModel req =
         , headers = []
         , url = endpoint ++ op.path
         , body = op.body
-        , expect = Http.expectJson toMsg op.decoder
+        , expect =
+            case op.decoder of
+                Json decoder ->
+                    Http.expectJson toMsg decoder
+
+                Empty res ->
+                    Http.expectString (toMsg << Result.map (always res))
         }

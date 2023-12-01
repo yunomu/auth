@@ -4,6 +4,11 @@ import Element exposing (Element)
 import Element.Border as Border
 
 
+columnHeight : Element.Length
+columnHeight =
+    Element.px 30
+
+
 view :
     List record
     -> (Int -> record -> Bool)
@@ -22,6 +27,7 @@ view data emphasis columns =
                     { header =
                         Element.el
                             [ Element.paddingXY 10 2
+                            , Element.height columnHeight
                             , Border.widthEach
                                 { bottom = 2
                                 , top = 2
@@ -36,6 +42,7 @@ view data emphasis columns =
                         \i r ->
                             Element.el
                                 [ Element.paddingXY 10 2
+                                , Element.height columnHeight
                                 , Border.solid
                                 , Border.widthEach
                                     { bottom =

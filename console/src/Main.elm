@@ -15,8 +15,13 @@ import Route exposing (Route)
 import Task
 import Url exposing (Url)
 import Url.Builder as UrlBuilder
+import View.EditProduct
+import View.EditUser
 import View.Index
 import View.Org.Header
+import View.ProductDeleteConfirm
+import View.Template.Main
+import View.UserDeleteConfirm
 
 
 port storeTokens : ( String, String, String ) -> Cmd msg
@@ -49,6 +54,20 @@ type Msg
     | RedirectToLoginForm
     | RedirectToIndex
     | AuthMsg Msg Auth.Msg
+    | EditUserMsg View.EditUser.Msg
+    | AddUser
+    | AddUserCommit Proto.Api.User
+    | EditUser Proto.Api.User
+    | EditUserCommit Proto.Api.User
+    | DeleteUserConfirm Proto.Api.User
+    | DeleteUserCommit Proto.Api.User
+    | AddProduct
+    | AddProductCommit Proto.Api.Product
+    | EditProduct Proto.Api.Product
+    | EditProductMsg View.EditProduct.Msg
+    | EditProductCommit Proto.Api.Product
+    | DeleteProductConfirm Proto.Api.Product
+    | DeleteProductCommit Proto.Api.Product
 
 
 type alias Token =
@@ -70,6 +89,10 @@ type alias Model =
     , endpoint : String
     , headerModel : View.Org.Header.Model
     , users : List Proto.Api.User
+    , products : List Proto.Api.Product
+    , appCodes : List String
+    , editUserModel : View.EditUser.Model
+    , editProductModel : View.EditProduct.Model
     }
 
 
@@ -104,6 +127,10 @@ init flags url key =
       , endpoint = "/v1"
       , headerModel = View.Org.Header.LoginForm loginFormURL
       , users = []
+      , products = []
+      , appCodes = []
+      , editUserModel = View.EditUser.init []
+      , editProductModel = View.EditProduct.init
       }
     , Cmd.batch
         [ Nav.pushUrl key (Url.toString url)
@@ -151,7 +178,10 @@ update msg model =
 
                 Route.Index ->
                     ( { model | route = route }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    , Cmd.batch
+                        [ Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                        , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                        ]
                     )
 
                 _ ->
@@ -186,12 +216,48 @@ update msg model =
 
         ApiResponse apiResponse ->
             case apiResponse of
-                Ok res ->
-                    case res of
-                        Api.GetUsersResponse users ->
-                            ( { model | users = users }
-                            , Cmd.none
-                            )
+                Ok (Api.GetUsersResponse users) ->
+                    ( { model | users = users }
+                    , Cmd.none
+                    )
+
+                Ok (Api.PostUserResponse user) ->
+                    ( { model | route = Route.Index }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    )
+
+                Ok (Api.PutUserResponse user) ->
+                    ( { model | route = Route.Index }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    )
+
+                Ok (Api.DeleteUserResponse email) ->
+                    ( { model | route = Route.Index }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    )
+
+                Ok (Api.GetProductsResponse products) ->
+                    ( { model
+                        | products = products
+                        , appCodes = List.map (\p -> p.appCode) products
+                      }
+                    , Cmd.none
+                    )
+
+                Ok (Api.PostProductResponse product) ->
+                    ( { model | route = Route.Index }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                    )
+
+                Ok (Api.PutProductResponse product) ->
+                    ( { model | route = Route.Index }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                    )
+
+                Ok (Api.DeleteProductResponse clientId) ->
+                    ( { model | route = Route.Index }
+                    , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                    )
 
                 Err (Http.BadStatus 401) ->
                     ( model
@@ -201,7 +267,7 @@ update msg model =
                         Auth.RefreshToken
                     )
 
-                _ ->
+                Err err ->
                     ( model, Cmd.none )
 
         AuthResult prevMsg result ->
@@ -234,6 +300,96 @@ update msg model =
             , Nav.pushUrl model.key <| Route.path Route.Index
             )
 
+        AddProduct ->
+            ( { model
+                | route = Route.ProductAdd
+                , editProductModel = View.EditProduct.init
+              }
+            , Cmd.none
+            )
+
+        AddUser ->
+            ( { model
+                | route = Route.UserAdd
+                , editUserModel = View.EditUser.init model.appCodes
+              }
+            , Cmd.none
+            )
+
+        AddUserCommit user ->
+            ( model
+            , Api.request ApiResponse model.endpoint model.authModel (Api.PostUserRequest user)
+            )
+
+        EditUser user ->
+            ( { model
+                | route = Route.UserEdit
+                , editUserModel = View.EditUser.initFromUser model.appCodes user
+              }
+            , Cmd.none
+            )
+
+        EditUserCommit user ->
+            ( model
+            , Api.request ApiResponse model.endpoint model.authModel (Api.PutUserRequest user)
+            )
+
+        DeleteUserConfirm user ->
+            ( { model | route = Route.UserDeleteConfirm user }
+            , Cmd.none
+            )
+
+        DeleteUserCommit user ->
+            ( model
+            , Api.request ApiResponse model.endpoint model.authModel (Api.DeleteUserRequest user.email)
+            )
+
+        EditUserMsg msg_ ->
+            let
+                ( editUserModel, cmd ) =
+                    View.EditUser.update msg_ model.editUserModel
+            in
+            ( { model | editUserModel = editUserModel }
+            , cmd
+            )
+
+        DeleteProductConfirm product ->
+            ( { model | route = Route.ProductDeleteConfirm product }
+            , Cmd.none
+            )
+
+        DeleteProductCommit product ->
+            ( model
+            , Api.request ApiResponse model.endpoint model.authModel (Api.DeleteProductRequest product.clientId)
+            )
+
+        EditProductMsg msg_ ->
+            let
+                ( editProductModel, cmd ) =
+                    View.EditProduct.update msg_ model.editProductModel
+            in
+            ( { model | editProductModel = editProductModel }
+            , cmd
+            )
+
+        AddProductCommit product ->
+            ( model
+            , Api.request ApiResponse model.endpoint model.authModel (Api.PostProductRequest product)
+            )
+
+        EditProduct product ->
+            ( { model
+                | route = Route.ProductEdit
+                , editProductModel = View.EditProduct.initFromProduct product
+              }
+            , Cmd.none
+            )
+
+        EditProductCommit product ->
+            ( model
+            , Api.request ApiResponse model.endpoint model.authModel (Api.PutProductRequest product)
+            )
+
         NOP ->
             ( model, Cmd.none )
 
@@ -241,6 +397,63 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Events.onResize OnResize
+
+
+indexView =
+    View.Index.view
+        { addUser = AddUser
+        , deleteUser = DeleteUserConfirm
+        , editUser = EditUser
+        , addProduct = AddProduct
+        , deleteProduct = DeleteProductConfirm
+        , editProduct = EditProduct
+        }
+
+
+userDeleteView =
+    View.UserDeleteConfirm.view
+        { commit = DeleteUserCommit
+        , cancel = RedirectToIndex
+        }
+
+
+addUserView =
+    View.EditUser.view
+        { commit = AddUserCommit
+        , cancel = RedirectToIndex
+        , toMsg = EditUserMsg
+        }
+
+
+editUserView =
+    View.EditUser.view
+        { commit = EditUserCommit
+        , cancel = RedirectToIndex
+        , toMsg = EditUserMsg
+        }
+
+
+addProductView =
+    View.EditProduct.view "New product"
+        { commit = AddProductCommit
+        , cancel = RedirectToIndex
+        , toMsg = EditProductMsg
+        }
+
+
+productDeleteView =
+    View.ProductDeleteConfirm.view
+        { commit = DeleteProductCommit
+        , cancel = RedirectToIndex
+        }
+
+
+editProductView =
+    View.EditProduct.view "Edit product"
+        { commit = EditProductCommit
+        , cancel = RedirectToIndex
+        , toMsg = EditProductMsg
+        }
 
 
 view : Model -> Browser.Document Msg
@@ -252,15 +465,34 @@ view model =
                 Lazy.lazy View.Org.Header.view model.headerModel
         in
         [ Element.layout [] <|
-            case model.route of
-                Route.Index ->
-                    View.Index.view header model.users
+            View.Template.Main.view header <|
+                case model.route of
+                    Route.Index ->
+                        Lazy.lazy2 indexView model.users model.products
 
-                Route.AuthCallback _ ->
-                    Element.none
+                    Route.UserAdd ->
+                        Lazy.lazy addUserView model.editUserModel
 
-                Route.NotFound _ ->
-                    Element.text "NotFound"
+                    Route.UserEdit ->
+                        Lazy.lazy editUserView model.editUserModel
+
+                    Route.UserDeleteConfirm user ->
+                        Lazy.lazy userDeleteView user
+
+                    Route.ProductAdd ->
+                        Lazy.lazy addProductView model.editProductModel
+
+                    Route.ProductEdit ->
+                        Lazy.lazy editProductView model.editProductModel
+
+                    Route.ProductDeleteConfirm product ->
+                        Lazy.lazy productDeleteView product
+
+                    Route.AuthCallback _ ->
+                        Element.none
+
+                    Route.NotFound _ ->
+                        Element.text "NotFound"
         ]
     }
 
