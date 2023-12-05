@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -38,8 +39,8 @@ func (e *BadRequest) Error() string {
 
 type Handler struct {
 	userlistDB  userlist.DB
-	marshaler   proto.MarshalOptions
-	unmarshaler proto.UnmarshalOptions
+	marshaler   protojson.MarshalOptions
+	unmarshaler protojson.UnmarshalOptions
 
 	handlers map[string]func(context.Context, *Request) (proto.Message, error)
 
@@ -196,8 +197,10 @@ func NewHandler(
 ) *Handler {
 	h := &Handler{
 		userlistDB: userlistDB,
-		marshaler:  proto.MarshalOptions{},
-		unmarshaler: proto.UnmarshalOptions{
+		marshaler: protojson.MarshalOptions{
+			EmitUnpopulated: false,
+		},
+		unmarshaler: protojson.UnmarshalOptions{
 			DiscardUnknown: true,
 		},
 
@@ -248,9 +251,13 @@ func (h *Handler) Serve(ctx context.Context, req *Request) (*Response, error) {
 
 	var buf strings.Builder
 	if res != nil {
-		enc := json.NewEncoder(&buf)
-		if err := enc.Encode(res); err != nil {
-			h.logger.Error(err, "json.Encoder.Encode", req, "response", res)
+		bs, err := h.marshaler.Marshal(res)
+		if err != nil {
+			h.logger.Error(err, "proto.Marshal", req, "response", res)
+			return nil, err
+		}
+		if _, err := buf.Write(bs); err != nil {
+			h.logger.Error(err, "strings.Builder.Write", req, "response", res, "bytes", bs)
 			return nil, err
 		}
 	}

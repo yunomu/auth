@@ -11,6 +11,7 @@ import (
 
 	"github.com/yunomu/auth/cmd/config"
 	"github.com/yunomu/auth/cmd/productdb"
+	"github.com/yunomu/auth/cmd/unmarshaler"
 	"github.com/yunomu/auth/cmd/userlist"
 )
 
@@ -22,6 +23,7 @@ func init() {
 	subcommands.Register(productdb.NewCommand(), "")
 	subcommands.Register(userlist.NewCommand(), "")
 	subcommands.Register(config.NewCommand(), "")
+	subcommands.Register(unmarshaler.NewCommand(), "")
 
 	subcommands.Register(subcommands.CommandsCommand(), "other")
 	subcommands.Register(subcommands.FlagsCommand(), "other")
