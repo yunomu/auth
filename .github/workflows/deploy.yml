@@ -1,0 +1,89 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: AWS
+    env:
+      SAM_CLI_TELEMETRY: 0
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.4'
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      - name: Install jq
+        run: sudo apt-get -y install jq
+
+
+      - name: Install protoc-gen-elm
+        run: go install github.com/yunomu/protoc-gen-elm@v1.2.0
+
+      - name: Setup SAM
+        uses: aws-actions/setup-sam@v2
+
+      - name: Build
+        run: make
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Deploy
+        run: |
+          sam deploy --no-fail-on-empty-changeset \
+            --stack-name ${{ vars.STACK_NAME }} \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides \
+            DomainName=${{ vars.DOMAIN_NAME }} \
+            ConsoleDomainName=${{ vars.CONSOLE_DOMAIN_NAME }} \
+            Certificate=${{ secrets.CERTIFICATE }} \
+            CallbackURL=${{ vars.CALLBACK_URL }} \
+            LogoutURL=${{ vars.LOGOUT_URL }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Elm
+        run: npm install -g elm@0.19.1
+
+      - name: Install uglifyjs
+        run: npm install -g uglify-js
+
+      - name: Build console
+        run: make release
+        working-directory: ./console
+
+      - name: Generate config from stack
+        run: ./console/scripts/generate_config_from_stack.sh ${{ vars.STACK_NAME }}
+
+      - name: Put config
+        run: cp ./console/static/config.json ./console/public/config.json
+
+      - name: Upload console
+        run: ./console/scripts/upload.sh ${{ vars.STACK_NAME }}
+
+      - name: Invalidate CloudFront cache
+        run: ./console/scripts/invalidate.sh ${{ vars.STACK_NAME }}
