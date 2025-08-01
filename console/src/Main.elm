@@ -49,7 +49,7 @@ type Msg
     | UrlChanged Url
     | OnResize Int Int
     | UserInfoMsg (Result Http.Error Auth.UserInfo)
-    | ApiResponse (Result Http.Error Api.Response)
+    | ApiResponse Api.Request (Result Http.Error Api.Response)
     | AuthResult Msg (Result Http.Error Auth.Token)
     | RedirectToLoginForm
     | RedirectToIndex
@@ -68,6 +68,8 @@ type Msg
     | EditProductCommit Proto.Api.Product
     | DeleteProductConfirm Proto.Api.Product
     | DeleteProductCommit Proto.Api.Product
+    | RetryUserInfoRequest
+    | RetryApiRequest Api.Request
 
 
 type alias Token =
@@ -177,10 +179,17 @@ update msg model =
                     )
 
                 Route.Index ->
+                    let
+                        getUsers =
+                            Api.GetUsersRequest
+
+                        getProducts =
+                            Api.GetProductsRequest
+                    in
                     ( { model | route = route }
                     , Cmd.batch
-                        [ Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
-                        , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                        [ Api.request (ApiResponse getUsers) model.endpoint model.authModel getUsers
+                        , Api.request (ApiResponse getProducts) model.endpoint model.authModel getProducts
                         ]
                     )
 
@@ -206,7 +215,7 @@ update msg model =
                 Err (Http.BadStatus 401) ->
                     ( model
                     , Auth.tokenRequest RedirectToLoginForm
-                        (AuthMsg msg)
+                        (AuthMsg RetryUserInfoRequest)
                         model.authModel
                         Auth.RefreshToken
                     )
@@ -214,7 +223,7 @@ update msg model =
                 Err _ ->
                     ( model, Cmd.none )
 
-        ApiResponse apiResponse ->
+        ApiResponse req apiResponse ->
             case apiResponse of
                 Ok (Api.GetUsersResponse users) ->
                     ( { model | users = users }
@@ -222,18 +231,30 @@ update msg model =
                     )
 
                 Ok (Api.PostUserResponse user) ->
+                    let
+                        getUsers =
+                            Api.GetUsersRequest
+                    in
                     ( { model | route = Route.Index }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    , Api.request (ApiResponse getUsers) model.endpoint model.authModel getUsers
                     )
 
                 Ok (Api.PutUserResponse user) ->
+                    let
+                        getUsers =
+                            Api.GetUsersRequest
+                    in
                     ( { model | route = Route.Index }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    , Api.request (ApiResponse getUsers) model.endpoint model.authModel getUsers
                     )
 
                 Ok (Api.DeleteUserResponse email) ->
+                    let
+                        getUsers =
+                            Api.GetUsersRequest
+                    in
                     ( { model | route = Route.Index }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetUsersRequest
+                    , Api.request (ApiResponse getUsers) model.endpoint model.authModel getUsers
                     )
 
                 Ok (Api.GetProductsResponse products) ->
@@ -245,24 +266,36 @@ update msg model =
                     )
 
                 Ok (Api.PostProductResponse product) ->
+                    let
+                        getProducts =
+                            Api.GetProductsRequest
+                    in
                     ( { model | route = Route.Index }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                    , Api.request (ApiResponse getProducts) model.endpoint model.authModel getProducts
                     )
 
                 Ok (Api.PutProductResponse product) ->
+                    let
+                        getProducts =
+                            Api.GetProductsRequest
+                    in
                     ( { model | route = Route.Index }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                    , Api.request (ApiResponse getProducts) model.endpoint model.authModel getProducts
                     )
 
                 Ok (Api.DeleteProductResponse clientId) ->
+                    let
+                        getProducts =
+                            Api.GetProductsRequest
+                    in
                     ( { model | route = Route.Index }
-                    , Api.request ApiResponse model.endpoint model.authModel Api.GetProductsRequest
+                    , Api.request (ApiResponse getProducts) model.endpoint model.authModel getProducts
                     )
 
                 Err (Http.BadStatus 401) ->
                     ( model
                     , Auth.tokenRequest RedirectToLoginForm
-                        (AuthMsg msg)
+                        (AuthMsg (RetryApiRequest req))
                         model.authModel
                         Auth.RefreshToken
                     )
@@ -276,7 +309,7 @@ update msg model =
                     ( model
                     , Cmd.batch
                         [ storeTokens ( token.idToken, token.accessToken, token.refreshToken )
-                        , Task.perform identity <| Task.succeed prevMsg
+                        , Task.perform (\_ -> prevMsg) (Task.succeed ())
                         ]
                     )
 
@@ -317,8 +350,12 @@ update msg model =
             )
 
         AddUserCommit user ->
+            let
+                req =
+                    Api.PostUserRequest user
+            in
             ( model
-            , Api.request ApiResponse model.endpoint model.authModel (Api.PostUserRequest user)
+            , Api.request (ApiResponse req) model.endpoint model.authModel req
             )
 
         EditUser user ->
@@ -330,8 +367,12 @@ update msg model =
             )
 
         EditUserCommit user ->
+            let
+                req =
+                    Api.PutUserRequest user
+            in
             ( model
-            , Api.request ApiResponse model.endpoint model.authModel (Api.PutUserRequest user)
+            , Api.request (ApiResponse req) model.endpoint model.authModel req
             )
 
         DeleteUserConfirm user ->
@@ -340,8 +381,12 @@ update msg model =
             )
 
         DeleteUserCommit user ->
+            let
+                req =
+                    Api.DeleteUserRequest user.email
+            in
             ( model
-            , Api.request ApiResponse model.endpoint model.authModel (Api.DeleteUserRequest user.email)
+            , Api.request (ApiResponse req) model.endpoint model.authModel req
             )
 
         EditUserMsg msg_ ->
@@ -359,8 +404,12 @@ update msg model =
             )
 
         DeleteProductCommit product ->
+            let
+                req =
+                    Api.DeleteProductRequest product.clientId
+            in
             ( model
-            , Api.request ApiResponse model.endpoint model.authModel (Api.DeleteProductRequest product.clientId)
+            , Api.request (ApiResponse req) model.endpoint model.authModel req
             )
 
         EditProductMsg msg_ ->
@@ -373,8 +422,12 @@ update msg model =
             )
 
         AddProductCommit product ->
+            let
+                req =
+                    Api.PostProductRequest product
+            in
             ( model
-            , Api.request ApiResponse model.endpoint model.authModel (Api.PostProductRequest product)
+            , Api.request (ApiResponse req) model.endpoint model.authModel req
             )
 
         EditProduct product ->
@@ -386,9 +439,19 @@ update msg model =
             )
 
         EditProductCommit product ->
+            let
+                req =
+                    Api.PutProductRequest product
+            in
             ( model
-            , Api.request ApiResponse model.endpoint model.authModel (Api.PutProductRequest product)
+            , Api.request (ApiResponse req) model.endpoint model.authModel req
             )
+
+        RetryUserInfoRequest ->
+            ( model, Auth.userInfoRequest UserInfoMsg model.authModel )
+
+        RetryApiRequest req ->
+            ( model, Api.request (ApiResponse req) model.endpoint model.authModel req )
 
         NOP ->
             ( model, Cmd.none )
