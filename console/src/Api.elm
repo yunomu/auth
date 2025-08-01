@@ -65,14 +65,7 @@ mkOp req =
             , decoder =
                 Json <|
                     Decode.andThen
-                        (\r ->
-                            case r.user of
-                                Just u ->
-                                    Decode.succeed (PostUserResponse u)
-
-                                Nothing ->
-                                    Decode.fail "empty response"
-                        )
+                        (\r -> Decode.succeed (PostUserResponse r.user))
                         Proto.Api.restrictionResponseDecoder
             }
 
@@ -107,14 +100,7 @@ mkOp req =
             , decoder =
                 Json <|
                     Decode.andThen
-                        (\r ->
-                            case r.product of
-                                Just p ->
-                                    Decode.succeed (PostProductResponse p)
-
-                                Nothing ->
-                                    Decode.fail "empty response"
-                        )
+                        (\r -> Decode.succeed (PostProductResponse r.product))
                         Proto.Api.productResponseDecoder
             }
 
