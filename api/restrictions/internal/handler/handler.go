@@ -135,7 +135,7 @@ func (h *Handler) put(ctx context.Context, req *Request) (proto.Message, error) 
 	if _, err := h.userlistDB.Update(ctx, &userlist.User{
 		Name:     user.Email,
 		AppCodes: user.AppCodes,
-	}, 0); err != nil {
+	}, user.Version); err != nil {
 		if err == userlist.ErrOptimisticLock {
 			return nil, &BadRequest{
 				Message: "lock error",
