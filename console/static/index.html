@@ -22,7 +22,7 @@
                                 "authClientId": cfg.UserPoolClientId,
                                 "authRedirectURL": cfg.AuthRedirectURL,
                                 "logoutRedirectURL": cfg.LogoutRedirectURL,
-                                "idp": "https://"+cfg.IDP};
+                                "idp": cfg.IDP};
                 const app = Elm.Main.init({
                         node: document.getElementById("app"),
                         flags: flags
