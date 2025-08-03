@@ -69,7 +69,7 @@ cat << EOF > "${CONFIG_FILE}"
   "UserPoolClientId": "${USER_POOL_CLIENT_ID}",
   "AuthRedirectURL": "${AUTH_REDIRECT_URL}",
   "LogoutRedirectURL": "${LOGOUT_REDIRECT_URL}",
-  "IDP": "https://${IDP}"
+  "IDP": "${IDP}"
 }
 EOF
 
