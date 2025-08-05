@@ -17,6 +17,13 @@ Parameters:
     Type: String
     Default: "658327ea-f89d-4fab-a63d-7e88639e58f6"
 
+Globals:
+  Function:
+    Runtime: provided.al2
+    Handler: bootstrap
+    Architectures:
+      - x86_64
+
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -155,8 +162,6 @@ Resources:
       BuildMethod: go1.x
     Properties:
       CodeUri: lambda/presignup/
-      Handler: bootstrap
-      Runtime: provided.al2
       Policies:
         - !Ref ProductTableReadPolicy
         - !Ref RestrictionTableReadPolicy
@@ -178,8 +183,6 @@ Resources:
       BuildMethod: go1.x
     Properties:
       CodeUri: lambda/preauth/
-      Handler: bootstrap
-      Runtime: provided.al2
       Policies:
         - !Ref ProductTableReadPolicy
         - !Ref RestrictionTableReadPolicy
