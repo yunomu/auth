@@ -13,7 +13,7 @@ type alias Model =
     { clientId : String
     , appCode : String
     , funcArn : String
-    , version : Int
+    , version : String
     }
 
 
@@ -28,7 +28,7 @@ init =
     { clientId = ""
     , appCode = ""
     , funcArn = ""
-    , version = 0
+    , version = "0"
     }
 
 
@@ -36,7 +36,7 @@ initFromProduct : Proto.Api.Product -> Model
 initFromProduct product =
     { clientId = product.clientId
     , appCode = product.appCode
-    , funcArn = product.funcArn
+    , funcArn = Maybe.withDefault "" product.funcArn
     , version = product.version
     }
 
@@ -45,7 +45,12 @@ mk : Model -> Proto.Api.Product
 mk model =
     { clientId = model.clientId
     , appCode = model.appCode
-    , funcArn = model.funcArn
+    , funcArn =
+        if model.funcArn == "" then
+            Nothing
+
+        else
+            Just model.funcArn
     , version = model.version
     }
 

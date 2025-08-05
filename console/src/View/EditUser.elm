@@ -19,7 +19,7 @@ import View.Template.Form
 type alias Model =
     { email : String
     , appCodes : List ( Bool, String )
-    , version : Int
+    , version : String
     }
 
 
@@ -32,7 +32,7 @@ init : List String -> Model
 init appCodes =
     { email = ""
     , appCodes = List.map (Tuple.pair False) appCodes
-    , version = 0
+    , version = "0"
     }
 
 

@@ -25,7 +25,7 @@ view msgs product =
               , body = Element.text product.appCode
               }
             , { header = "Function ARN"
-              , body = Element.text product.funcArn
+              , body = Element.text <| Maybe.withDefault "---" product.funcArn
               }
             ]
         )

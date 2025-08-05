@@ -188,7 +188,7 @@ update msg model =
                     in
                     ( { model | route = route }
                     , Cmd.batch
-                        [ Api.request (ApiResponse getUsers) model.endpoint model.authModel getUsers
+                        [ Debug.log "users request" Api.request (ApiResponse getUsers) model.endpoint model.authModel getUsers
                         , Api.request (ApiResponse getProducts) model.endpoint model.authModel getProducts
                         ]
                     )
@@ -226,7 +226,7 @@ update msg model =
         ApiResponse req apiResponse ->
             case apiResponse of
                 Ok (Api.GetUsersResponse users) ->
-                    ( { model | users = users }
+                    ( { model | users = Debug.log "users" users }
                     , Cmd.none
                     )
 
@@ -301,6 +301,10 @@ update msg model =
                     )
 
                 Err err ->
+                    let
+                        _ =
+                            Debug.log "err" err
+                    in
                     ( model, Cmd.none )
 
         AuthResult prevMsg result ->

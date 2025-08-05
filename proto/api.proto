@@ -21,7 +21,7 @@ message RestrictionResponse {
 message Product {
   string client_id = 1;
   string app_code = 2;
-  string func_arn = 3;
+  optional string func_arn = 3;
   int64 version = 4;
 }
 

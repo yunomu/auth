@@ -74,7 +74,7 @@ productsTable addProduct deleteProduct editProduct products =
           , view = \i product -> Element.text product.appCode
           }
         , { header = "Func ARN"
-          , view = \i product -> Element.text product.funcArn
+          , view = \i product -> Element.text <| Maybe.withDefault "---" product.funcArn
           }
         ]
 
