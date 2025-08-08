@@ -51,10 +51,14 @@ type Handler struct {
 func (h *Handler) list(ctx context.Context, req *Request) (proto.Message, error) {
 	var products []*apipb.Product
 	if err := h.productDB.Scan(ctx, func(p *productdb.Product, ts int64) {
+		var funcArn *string
+		if p.FuncArn != "" {
+			funcArn = &p.FuncArn
+		}
 		products = append(products, &apipb.Product{
 			ClientId: p.ClientId,
 			AppCode:  p.AppCode,
-			FuncArn:  p.FuncArn,
+			FuncArn:  funcArn,
 			Version:  ts,
 		})
 	}); err != nil {
@@ -76,10 +80,14 @@ func (h *Handler) post(ctx context.Context, req *Request) (proto.Message, error)
 		}
 	}
 
+	var funcArn string
+	if p.FuncArn != nil {
+		funcArn = *p.FuncArn
+	}
 	product := &productdb.Product{
 		ClientId: p.ClientId,
 		AppCode:  p.AppCode,
-		FuncArn:  p.FuncArn,
+		FuncArn:  funcArn,
 	}
 	version, err := h.productDB.Update(ctx, product, 0)
 	if err != nil {
@@ -116,11 +124,15 @@ func (h *Handler) get(ctx context.Context, req *Request) (proto.Message, error) 
 		return nil, err
 	}
 
+	var funcArn *string
+	if product.FuncArn != "" {
+		funcArn = &product.FuncArn
+	}
 	return &apipb.ProductResponse{
 		Product: &apipb.Product{
 			ClientId: product.ClientId,
 			AppCode:  product.AppCode,
-			FuncArn:  product.FuncArn,
+			FuncArn:  funcArn,
 			Version:  version,
 		},
 	}, nil
@@ -146,10 +158,14 @@ func (h *Handler) put(ctx context.Context, req *Request) (proto.Message, error) 
 		}
 	}
 
+	var funcArn string
+	if p.FuncArn != nil {
+		funcArn = *p.FuncArn
+	}
 	product := &productdb.Product{
 		ClientId: p.ClientId,
 		AppCode:  p.AppCode,
-		FuncArn:  p.FuncArn,
+		FuncArn:  funcArn,
 	}
 	if _, err := h.productDB.Update(ctx, product, p.Version); err != nil {
 		if err == productdb.ErrOptimisticLock {

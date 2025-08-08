@@ -6,7 +6,7 @@ PROTO_TARGETS=proto/api/api.pb.go
 PROTO_ELM_TARGETS=$(ELM_DIR)/Proto/Api.elm
 
 build: proto
-	CGO_ENABLED=0 sam build
+	CGO_ENABLED=0 sam build --debug
 
 proto: $(PROTO_TARGETS) $(PROTO_ELM_TARGETS)
 
